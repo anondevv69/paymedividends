@@ -2,6 +2,7 @@ cache/
 out/
 broadcast/
 .env
+.env.deploy
 .DS_Store
 node_modules/
 npm-debug.log*
