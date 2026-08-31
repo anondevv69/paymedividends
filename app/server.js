@@ -57,6 +57,20 @@ export function createServer({ env = process.env, now = () => new Date().toISOSt
       return;
     }
 
+    if (pathname === "/v1/universal") {
+      const deployed = config.universalRevenueVault !== null;
+      json(response, 200, {
+        phase: deployed ? "awaiting_indexer" : "not_deployed",
+        universalRevenueVault: config.universalRevenueVault,
+        verifiedContributorCount: 0,
+        contributors: [],
+        verification: deployed
+          ? "Contributor records will appear only after the indexed Bankr fee recipient matches the universal vault."
+          : "No universal vault is deployed, so there are no verified contributor tokens to show.",
+      });
+      return;
+    }
+
     json(response, 404, { error: "not_found" });
   });
 }

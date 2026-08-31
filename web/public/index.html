@@ -121,7 +121,16 @@
               </div>
             </fieldset>
             <fieldset class="bankr-only">
-              <legend>4. Holder allocation</legend>
+              <legend>4. Revenue destination</legend>
+              <div class="choice-grid choice-grid-three">
+                <label class="choice"><input type="radio" name="route" value="direct" /><span><b>Direct holders</b><small>100% to this token’s holders</small></span></label>
+                <label class="choice selected"><input type="radio" name="route" value="split" checked /><span><b>Share with universal</b><small>95% holders · 5% universal</small></span></label>
+                <label class="choice"><input type="radio" name="route" value="universal" /><span><b>Universal only</b><small>100% to the RWA pool</small></span></label>
+              </div>
+              <p class="field-note">This is a routing decision, not a universal-level protocol fee. The chosen split is fixed in that token’s project router.</p>
+            </fieldset>
+            <fieldset class="bankr-only holder-allocation">
+              <legend>5. Holder allocation</legend>
               <div class="choice-grid single-line">
                 <label class="choice selected"><input type="radio" name="allocation" value="Pro-rata" checked /><span><b>Pro-rata</b><small>Based on snapshot balance</small></span></label>
                 <label class="choice"><input type="radio" name="allocation" value="Equal" /><span><b>Equal share</b><small>One share per eligible wallet</small></span></label>
@@ -140,8 +149,8 @@
               <p class="field-note">The contributor funds the universal pool. Its holders do not receive a separate claim entitlement unless they also hold the universal token.</p>
             </fieldset>
             <fieldset>
-              <legend>5. Fee policy</legend>
-              <div class="fee-preview"><span>Protocol fee</span><strong>5.00%</strong><span>Holder / pool allocation</span><strong>95.00%</strong></div>
+              <legend>6. Routing summary</legend>
+              <div class="fee-preview"><span>Token-holder allocation</span><strong id="holder-allocation-bps">95.00%</strong><span>Universal allocation</span><strong id="universal-allocation-bps">05.00%</strong></div>
             </fieldset>
             <button class="button button-primary build-button" type="submit">Create test blueprint <span>→</span></button>
             <p class="form-safety">No wallet action occurs from this form.</p>
@@ -168,6 +177,15 @@
           <article class="dashboard-card"><div class="card-label">Last round</div><strong>—</strong><p>No holder snapshot has been signed.</p></article>
           <article class="dashboard-card"><div class="card-label">Claims paid</div><strong>0</strong><p>Funds remain untouched until an audited deployment.</p></article>
         </div>
+      </section>
+
+      <section class="universal-directory section-shell" id="universal-directory">
+        <div class="dashboard-top"><div><div class="section-kicker">Universal pool / verified onchain</div><h2>Contributor tokens</h2></div><span class="demo-tag" id="universal-phase">Checking</span></div>
+        <div class="directory-grid">
+          <article class="directory-card directory-status"><span class="card-label">UniversalRevenueVault</span><strong id="universal-vault">Not deployed</strong><p id="universal-verification">Checking the control plane for the universal-vault configuration.</p></article>
+          <article class="directory-card"><span class="card-label">Verified contributors</span><strong id="universal-count">0</strong><p>Only tokens whose live Bankr fee recipient resolves to the universal vault appear here.</p></article>
+        </div>
+        <div class="contributor-list" id="contributor-list" aria-live="polite"><div class="empty-contributors"><span>NO VERIFIED CONTRIBUTORS YET</span><p>After the universal vault is deployed, this list will show every Bankr token that has verifiably routed fees to it—never a self-reported or unverified token.</p></div></div>
       </section>
 
       <section class="safety section-shell">
