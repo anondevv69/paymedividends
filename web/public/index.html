@@ -28,20 +28,20 @@
       <section class="hero section-shell">
         <div class="eyebrow"><span class="pulse"></span> Payout infrastructure · test environment</div>
         <h1>Let a token<br />pay its <em>holders.</em></h1>
-        <p class="hero-copy">Configure a transparent payout vault for a single token, or route fees into a shared RWA rewards pool. Test the full flow before anything touches mainnet.</p>
+        <p class="hero-copy">Configure an isolated Project Router for one token, or enroll it in a tokenless shared RWA rewards Hub. Test the full flow before anything touches mainnet.</p>
         <div class="hero-actions">
           <a class="button button-primary" href="#test-lab">Build a test program <span>↓</span></a>
           <a class="button button-quiet" href="#how-it-works">See the mechanics <span>↘</span></a>
         </div>
         <div class="hero-stats" aria-label="Platform test environment status">
-          <div><strong>05.00%</strong><span>visible protocol fee</span></div>
+          <div><strong>05.00%</strong><span>target Hub infrastructure fee</span></div>
           <div><strong>0</strong><span>live contracts deployed</span></div>
           <div><strong id="api-status">Checking</strong><span>control plane</span></div>
         </div>
       </section>
 
       <section class="ticker" aria-label="Supported payout concepts">
-        <span>HOLDER SNAPSHOTS</span><i>✦</i><span>MERKLE CLAIMS</span><i>✦</i><span>FIXED FEE POLICY</span><i>✦</i><span>ISOLATED VAULTS</span><i>✦</i><span>NO CUSTODY KEYS</span><i>✦</i>
+        <span>HOLDER SNAPSHOTS</span><i>✦</i><span>MERKLE CLAIMS</span><i>✦</i><span>FIXED FEE POLICY</span><i>✦</i><span>ISOLATED ROUTERS</span><i>✦</i><span>NO CUSTODY KEYS</span><i>✦</i>
       </section>
 
       <section class="section-shell how" id="how-it-works">
@@ -50,21 +50,21 @@
         <div class="path-grid">
           <article class="path-card lime-card">
             <span class="card-number">A</span>
-            <h3>Launch a<br />Bankr token</h3>
-            <p>Create a vault first, then use it as the Bankr fee recipient when launching a new token.</p>
-            <ol><li>Vault address is created</li><li>Bankr launches the paired token</li><li>Pool details bind to the vault</li></ol>
+            <h3>Launch a<br />member token</h3>
+            <p>Create a Project Router first, then use it as the Bankr fee recipient when launching a new token.</p>
+            <ol><li>Router address is created</li><li>Bankr launches the paired token</li><li>Pool details bind to the router</li></ol>
           </article>
           <article class="path-card dark-card">
             <span class="card-number">B</span>
             <h3>Connect an<br />existing token</h3>
-            <p>An existing Bankr token changes its fee recipient to its dedicated payout vault.</p>
-            <ol><li>Confirm token and Doppler pool</li><li>Set fee recipient to the vault</li><li>Bind fees to its holders</li></ol>
+            <p>An existing Bankr token changes its fee recipient to a dedicated Project Router.</p>
+            <ol><li>Confirm token and Doppler pool</li><li>Set fee recipient to the router</li><li>Verify member-token status</li></ol>
           </article>
           <article class="path-card dark-card">
             <span class="card-number">C</span>
-            <h3>Universal<br />RWA pool</h3>
-            <p>Partner tokens funnel approved assets into a shared rewards basket for the universal token.</p>
-            <ol><li>Partner fees arrive as WETH or approved assets</li><li>Basket policy buys allowed RWA assets</li><li>Universal-token holders claim their share</li></ol>
+            <h3>Shared RWA<br />index</h3>
+            <p>Member tokens funnel approved assets into a tokenless shared rewards connector.</p>
+            <ol><li>Partner fees arrive as approved assets</li><li>Hub reserves multi-RWA rounds</li><li>All member-token holders claim</li></ol>
           </article>
         </div>
       </section>
@@ -74,10 +74,10 @@
           <div class="section-kicker">02 / What gets deployed</div>
           <div class="section-heading"><h2>Small contracts.<br /><em>Hard boundaries.</em></h2></div>
           <div class="contract-list">
-            <div class="contract-row"><span class="contract-index">01</span><div><h3>PayoutVaultFactory</h3><p>Creates an isolated vault for every dedicated token program. Its fee policy and platform treasury are set at deployment.</p></div><span class="contract-state">Deploy first</span></div>
-            <div class="contract-row"><span class="contract-index">02</span><div><h3>PayoutVault</h3><p>Receives Bankr/Doppler fees, settles the fixed fee, reserves a Merkle round, and lets holders claim. One vault per project.</p></div><span class="contract-state">Factory clone</span></div>
-            <div class="contract-row"><span class="contract-index">03</span><div><h3>Venue swap adapter</h3><p>Optional advanced treatment for creator-token fees: convert through a fixed, audited route into an approved payout asset. It never exposes arbitrary router calls.</p></div><span class="contract-state">After fork test</span></div>
-            <div class="contract-row"><span class="contract-index">04</span><div><h3>UniversalRevenueVault</h3><p>Optional second product: receives protocol/partner revenue and applies the transparent RWA-basket policy.</p></div><span class="contract-state">Phase two</span></div>
+            <div class="contract-row"><span class="contract-index">01</span><div><h3>UniversalRewardsHub</h3><p>Tokenless connector for approved RWA rewards, enrolled member tokens, transparent infrastructure funding, and multi-asset Merkle claim rounds.</p></div><span class="contract-state">V2 deploy first</span></div>
+            <div class="contract-row"><span class="contract-index">02</span><div><h3>ProjectRouterFactory</h3><p>Creates a low-cost isolated Project Router for every Bankr token that enrolls. Each router handles its own dual-asset fee stream.</p></div><span class="contract-state">V2 deploy second</span></div>
+            <div class="contract-row"><span class="contract-index">03</span><div><h3>ProjectRouter</h3><p>Receives Bankr/Doppler fees, forwards approved RWA assets to the Hub, and applies its immutable meme-token policy.</p></div><span class="contract-state">Factory clone</span></div>
+            <div class="contract-row"><span class="contract-index">04</span><div><h3>Venue swap adapter</h3><p>Optional advanced treatment for creator-token fees: a fixed, audited route with TWAP/slippage limits. It never exposes arbitrary router calls.</p></div><span class="contract-state">After fork test</span></div>
           </div>
         </div>
       </section>
@@ -91,9 +91,9 @@
             <fieldset>
               <legend>1. Bankr funding path</legend>
               <div class="choice-grid choice-grid-three">
-                <label class="choice selected"><input type="radio" name="programType" value="newBankr" checked /><span><b>Launch a Bankr token</b><small>Create it with our vault as fee recipient</small></span></label>
-                <label class="choice"><input type="radio" name="programType" value="existingBankr" /><span><b>Associate a Bankr token</b><small>Point an existing token’s fees to a vault</small></span></label>
-                <label class="choice"><input type="radio" name="programType" value="universal" /><span><b>Join universal pool</b><small>Route Bankr fees to the RWA basket</small></span></label>
+                <label class="choice selected"><input type="radio" name="programType" value="newBankr" checked /><span><b>Launch a Bankr token</b><small>Create it with a Project Router as fee recipient</small></span></label>
+                <label class="choice"><input type="radio" name="programType" value="existingBankr" /><span><b>Associate a Bankr token</b><small>Point an existing token’s fees to a Project Router</small></span></label>
+                <label class="choice"><input type="radio" name="programType" value="universal" /><span><b>Join shared RWA index</b><small>Enroll through a Project Router into the tokenless Hub</small></span></label>
               </div>
             </fieldset>
             <fieldset>
@@ -123,11 +123,11 @@
             <fieldset class="bankr-only">
               <legend>4. Revenue destination</legend>
               <div class="choice-grid choice-grid-three">
-                <label class="choice"><input type="radio" name="route" value="direct" /><span><b>Direct holders</b><small>100% to this token’s holders</small></span></label>
-                <label class="choice selected"><input type="radio" name="route" value="split" checked /><span><b>Share with universal</b><small>95% holders · 5% universal</small></span></label>
-                <label class="choice"><input type="radio" name="route" value="universal" /><span><b>Universal only</b><small>100% to the RWA pool</small></span></label>
+                <label class="choice"><input type="radio" name="route" value="direct" /><span><b>Independent payout</b><small>100% to this token’s holders</small></span></label>
+                <label class="choice selected"><input type="radio" name="route" value="split" checked /><span><b>Hybrid membership</b><small>95% local · 5% shared index</small></span></label>
+                <label class="choice"><input type="radio" name="route" value="universal" /><span><b>Universal member</b><small>100% to the shared RWA index</small></span></label>
               </div>
-              <p class="field-note">This is a routing decision, not a universal-level protocol fee. The chosen split is fixed in that token’s project router.</p>
+              <p class="field-note">This is a routing decision, not the Hub’s operating fee. The chosen split is fixed in that token’s Project Router; the Hub applies its transparent infrastructure policy only to RWA funds it receives.</p>
             </fieldset>
             <fieldset class="bankr-only holder-allocation">
               <legend>5. Holder allocation</legend>
@@ -137,20 +137,20 @@
               </div>
             </fieldset>
             <fieldset class="universal-only hidden">
-              <legend>3. Universal pool contribution</legend>
+              <legend>3. Shared-index contribution</legend>
               <div class="field-row">
                 <label>Contribution asset<select id="contribution-asset" name="contributionAsset"><option value="WETH">WETH</option><option value="USDC">USDC</option><option value="approved RWA">Approved RWA</option></select></label>
                 <label>Attribution<input id="partner-name" name="partnerName" placeholder="Optional partner name" maxlength="30" /></label>
               </div>
               <div class="choice-grid single-line">
-                <label class="choice selected"><input type="radio" name="universalFunding" value="feeRecipient" checked /><span><b>Set fee recipient</b><small>Bankr fees route to the universal vault</small></span></label>
+                <label class="choice selected"><input type="radio" name="universalFunding" value="feeRecipient" checked /><span><b>Set fee recipient</b><small>Bankr fees route through a Project Router</small></span></label>
                 <label class="choice"><input type="radio" name="universalFunding" value="deposit" /><span><b>Send approved assets</b><small>Direct WETH/RWA contribution</small></span></label>
               </div>
-              <p class="field-note">The contributor funds the universal pool. Its holders do not receive a separate claim entitlement unless they also hold the universal token.</p>
+              <p class="field-note">The contributor funds the tokenless Hub. Holders of every verified enrolled member token are eligible for its shared RWA reward rounds.</p>
             </fieldset>
             <fieldset>
               <legend>6. Routing summary</legend>
-              <div class="fee-preview"><span>Token-holder allocation</span><strong id="holder-allocation-bps">95.00%</strong><span>Universal allocation</span><strong id="universal-allocation-bps">05.00%</strong></div>
+              <div class="fee-preview"><span>Local-holder allocation</span><strong id="holder-allocation-bps">95.00%</strong><span>Shared-Hub allocation</span><strong id="universal-allocation-bps">05.00%</strong></div>
             </fieldset>
             <button class="button button-primary build-button" type="submit">Create test blueprint <span>→</span></button>
             <p class="form-safety">No wallet action occurs from this form.</p>
@@ -165,7 +165,7 @@
               <div><dt>Entitlement</dt><dd id="detail-entitlement">TEST holders</dd></div>
               <div><dt>Contract status</dt><dd class="pending" id="detail-contract">Not deployed</dd></div>
             </dl>
-            <div class="blueprint-output" id="blueprint-output">Choose whether to launch a Bankr token, associate an existing one, or join the universal pool. When the factory is deployed, this screen will generate the exact vault transaction and Bankr fee-recipient instructions.</div>
+            <div class="blueprint-output" id="blueprint-output">Choose whether to launch a Bankr member token, associate an existing one, or join the shared index. When v2 contracts are deployed, this screen will generate the exact router transaction and Bankr fee-recipient instructions.</div>
           </aside>
         </div>
       </section>
@@ -180,12 +180,12 @@
       </section>
 
       <section class="universal-directory section-shell" id="universal-directory">
-        <div class="dashboard-top"><div><div class="section-kicker">Universal pool / verified onchain</div><h2>Contributor tokens</h2></div><span class="demo-tag" id="universal-phase">Checking</span></div>
+        <div class="dashboard-top"><div><div class="section-kicker">Shared RWA index / verified onchain</div><h2>Member tokens</h2></div><span class="demo-tag" id="universal-phase">Checking</span></div>
         <div class="directory-grid">
-          <article class="directory-card directory-status"><span class="card-label">UniversalRevenueVault</span><strong id="universal-vault">Not deployed</strong><p id="universal-verification">Checking the control plane for the universal-vault configuration.</p></article>
-          <article class="directory-card"><span class="card-label">Verified contributors</span><strong id="universal-count">0</strong><p>Only tokens whose live Bankr fee recipient resolves to the universal vault appear here.</p></article>
+          <article class="directory-card directory-status"><span class="card-label">UniversalRewardsHub</span><strong id="universal-vault">Not deployed</strong><p id="universal-verification">Checking the control plane for the Hub configuration.</p></article>
+          <article class="directory-card"><span class="card-label">Verified member tokens</span><strong id="universal-count">0</strong><p>Only tokens whose live Bankr fee recipient resolves to an enrolled Project Router appear here.</p></article>
         </div>
-        <div class="contributor-list" id="contributor-list" aria-live="polite"><div class="empty-contributors"><span>NO VERIFIED CONTRIBUTORS YET</span><p>After the universal vault is deployed, this list will show every Bankr token that has verifiably routed fees to it—never a self-reported or unverified token.</p></div></div>
+        <div class="contributor-list" id="contributor-list" aria-live="polite"><div class="empty-contributors"><span>NO VERIFIED MEMBER TOKENS YET</span><p>After the Hub and Project Router Factory are deployed, this list will show every Bankr token with a verifiably enrolled router—never a self-reported or unverified token.</p></div></div>
       </section>
 
       <section class="safety section-shell">

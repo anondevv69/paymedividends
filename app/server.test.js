@@ -47,6 +47,20 @@ test("universal directory never invents contributor tokens before deployment", a
   assert.equal(response.body.verifiedContributorCount, 0);
 });
 
+test("universal directory exposes only the configured v2 Hub address", async (t) => {
+  const hub = "0x1111111111111111111111111111111111111111";
+  const server = createServer({ env: { EXECUTION_MODE: "disabled", UNIVERSAL_REWARDS_HUB: hub } });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => server.close());
+
+  const response = await request(server, "/v1/universal");
+  assert.equal(response.status, 200);
+  assert.equal(response.body.phase, "awaiting_indexer");
+  assert.equal(response.body.universalRewardsHub, hub);
+  assert.deepEqual(response.body.contributors, []);
+});
+
 test("public port falls back to the Railway-compatible port", () => {
   assert.equal(publicPortFrom({}), 3000);
   assert.equal(publicPortFrom({ PUBLIC_PORT: "8081" }), 8081);

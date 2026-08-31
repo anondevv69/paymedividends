@@ -1,10 +1,34 @@
 # Pay Me Dividends
 
-Self-service payout vaults for token communities. Each project receives creator-fee revenue,
-optionally converts it into a chosen payout asset, pays a transparent platform service fee, and
-reserves the remainder for token-holder claims.
+Tokenless shared-RWA reward infrastructure for Bankr/Doppler token communities. Each enrolled token
+uses an isolated Project Router for its fee stream; approved quote/RWA assets can reach a shared
+Hub, which reserves multi-asset Merkle claim rounds for all verified member-token holders.
 
-## v1 economic flow
+> The Solidity contracts currently in this repository are the **v1 dedicated-payout foundation**.
+> They are not the final v2 shared-Hub architecture and must not be used for a mainnet universal
+> deployment. The v2 contract plan is described below and still needs implementation, fork tests,
+> audit, and a controlled test deployment.
+
+## v2 tokenless shared-Hub target
+
+```text
+Bankr/Doppler fee stream (meme token + quote/RWA)
+→ isolated ProjectRouter (one per member token)
+→ approved quote/RWA → UniversalRewardsHub
+→ transparent Hub infrastructure split (policy-controlled)
+→ multi-asset Merkle rounds
+→ holders of every verified member token claim
+```
+
+- `UniversalRewardsHub` accepts only allowlisted RWA/numeraires and is the shared accounting and
+  claim boundary. It has no platform token.
+- `ProjectRouterFactory` creates one isolated router per enrolled Bankr/Doppler token.
+- `ProjectRouter` forwards approved quote/RWA assets to the Hub and applies an immutable policy to
+  any received meme asset: quote-only bypass, burn, lock, or a bounded audited swap adapter.
+- Snapshot roots must be produced from reproducible manifests and authorized in v1; a permissionless
+  publisher needs bonding/challenge rules before it can safely earn a keeper bounty.
+
+## Archived v1 dedicated-payout flow
 
 For a project token paired with NVDA:
 
@@ -20,26 +44,40 @@ TEST creator-fee revenue → project PayoutVault
 The platform fee is charged only on actual payout-asset revenue received by the vault. It is not a
 fee on users' wallets, existing liquidity, or a payout round that has already been reserved.
 
-## Bankr + Doppler on Robinhood Chain
+## Target Bankr + Doppler flow
 
-The first integration is Bankr launches on Robinhood Chain, which use Doppler pools. The deployment
-flow is intentionally two-step because Bankr needs a fee-recipient address before it creates the
-token:
+The first target integration is Bankr launches on Robinhood Chain, which use Doppler pools. The v2
+deployment flow is intentionally two-step because Bankr needs a fee-recipient address before it
+creates the token:
 
-1. The creator calls `createPrelaunchBankrDopplerProject(payoutAsset, minimumRoundPayout)` and gets a vault address.
-2. The creator launches their Bankr token on Robinhood Chain with that vault as the wallet `feeRecipient`.
-3. Bankr returns the token address and Doppler `poolId`; the creator calls `bindBankrDopplerLaunch(...)` once.
-4. The shared Railway keeper calls `claimBankrDopplerFees()`. Direct payout-asset fees are split 5% to the
-   platform treasury and 95% to the project reserve. A second received asset can be converted through the
-   vault's fixed swap adapter before receiving the same split.
+1. The creator creates a Project Router and receives its address.
+2. The creator launches their Bankr token on Robinhood Chain with that router as the wallet `feeRecipient`.
+3. Bankr returns the token address and Doppler `poolId`; the router is bound and enrolled in the Hub only
+   after onchain verification.
+4. The shared keeper indexes holder snapshots and proposes a reproducible multi-asset Merkle round. It
+   cannot move funds or publish an arbitrary root until the v2 authorization design is in place.
 
 The onchain integration is Doppler-compatible; `Bankr` is stored by the API as the launch source and
-the vault stores the fee manager + pool ID. Do not use a Bankr user API key as a platform secret. For
+the router stores the fee manager + pool ID. Do not use a Bankr user API key as a platform secret. For
 Robinhood Chain launches, the creator should use their own Bankr wallet flow and approve the launch
 transaction. Bankr documents Robinhood as a supported Doppler launch chain, while its partner-key
 launch flow is Base-only: <https://docs.bankr.bot/token-launching/api-reference/deploy-token-launch/>.
 
-## Contract model
+## V2 contracts to deploy — in this order
+
+1. `UniversalRewardsHub`: a tokenless, chain-specific Hub with an approved-asset allowlist, member
+   router registry, transparent ops/keeper fee configuration, round accounting, and Merkle claims.
+2. `ProjectRouter` implementation + `ProjectRouterFactory`: a chain-specific factory that creates an
+   isolated router for every Bankr token. Router configuration is immutable after binding.
+3. `ApprovedAssetRegistry` only if it is not embedded in the Hub: a tightly governed allowlist for
+   quote/RWA assets. The Hub must reject arbitrary meme tokens.
+4. A chain/venue-specific `SwapAdapter` only after a separate fork test and audit. Quote-only Bankr
+   fees do not need it.
+
+Do **not** deploy a new Doppler fee manager: it is venue infrastructure. Do **not** deploy the old
+`PayoutVaultFactory` as the shared index; it is the v1 foundation below, not the final v2 system.
+
+## Archived v1 contract model
 
 - `PayoutVaultFactory`: deploys a cheap isolated EIP-1167 vault for every project.
 - `PayoutVault`: stores the project configuration, settles revenue, reserves rounds, and pays claims.
