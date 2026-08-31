@@ -8,8 +8,10 @@ const programChoices = [...document.querySelectorAll('input[name="programType"]'
 const allocationChoices = [...document.querySelectorAll('input[name="allocation"]')];
 const treatmentChoices = [...document.querySelectorAll('input[name="treatment"]')];
 const fundingChoices = [...document.querySelectorAll('input[name="universalFunding"]')];
+const routeChoices = [...document.querySelectorAll('input[name="route"]')];
 const bankrOnly = [...document.querySelectorAll(".bankr-only")];
 const universalOnly = document.querySelector(".universal-only");
+const holderAllocation = document.querySelector(".holder-allocation");
 const advancedTreatment = document.querySelector(".advanced-treatment");
 const walletButton = document.querySelector("#wallet-button");
 const output = document.querySelector("#blueprint-output");
@@ -39,6 +41,16 @@ function isNewLaunch() {
   return state.programType === "newBankr";
 }
 
+function distributionRoute() {
+  return isUniversal() ? "universal" : selectedValue("route");
+}
+
+function routeAllocations() {
+  if (distributionRoute() === "direct") return { holders: 100, universal: 0 };
+  if (distributionRoute() === "universal") return { holders: 0, universal: 100 };
+  return { holders: 95, universal: 5 };
+}
+
 function displayPath() {
   if (isUniversal()) return "Join universal pool";
   return isNewLaunch() ? "Launch a Bankr token" : "Associate a Bankr token";
@@ -55,22 +67,31 @@ function refreshPreview() {
   const network = value("network") === "base" ? "Base" : "Robinhood Chain";
   const treatment = selectedValue("treatment");
   const asset = payoutAsset();
+  const route = distributionRoute();
+  const allocations = routeAllocations();
   const source = document.querySelector("#blueprint-source");
 
-  document.querySelector("#blueprint-token").textContent = universal ? `$${token} contributor` : `$${token}`;
+  document.querySelector("#blueprint-token").textContent = route === "universal" ? `$${token} contributor` : `$${token}`;
   document.querySelector("#blueprint-vault").textContent = universal
     ? "Universal revenue vault"
-    : isNewLaunch() ? "Prelaunch payout vault" : "Bound project vault";
-  document.querySelector("#blueprint-asset").textContent = universal ? `${asset} → RWA basket` : `${asset} claims`;
+    : isNewLaunch() ? "Prelaunch project router" : "Bound project router";
+  document.querySelector("#blueprint-asset").textContent = route === "universal"
+    ? `${asset} → RWA basket`
+    : route === "split" ? `${asset} claims + universal` : `${asset} claims`;
   source.textContent = universal
     ? selectedValue("universalFunding") === "deposit" ? "approved direct deposit" : "Bankr feeRecipient"
     : "Bankr feeRecipient";
   document.querySelector("#blueprint-arrow").textContent = universal
     ? "approved funds → RWA basket"
-    : treatment === "swap" ? "fixed swap route → 5% protocol · 95% holders" : "5% protocol · 95% holders";
+    : treatment === "swap" ? `fixed swap route → ${allocations.holders}% holders · ${allocations.universal}% universal`
+      : `${allocations.holders}% holders · ${allocations.universal}% universal`;
   document.querySelector("#detail-network").textContent = network;
   document.querySelector("#detail-program").textContent = displayPath();
-  document.querySelector("#detail-entitlement").textContent = universal ? "$UNIVERSAL holders" : `${token} holders`;
+  document.querySelector("#detail-entitlement").textContent = route === "universal"
+    ? "$UNIVERSAL holders"
+    : route === "split" ? `${token} + $UNIVERSAL holders` : `${token} holders`;
+  document.querySelector("#holder-allocation-bps").textContent = `${allocations.holders.toFixed(2)}%`;
+  document.querySelector("#universal-allocation-bps").textContent = `${allocations.universal.toFixed(2)}%`;
 }
 
 function switchProgramType(next) {
@@ -82,6 +103,11 @@ function switchProgramType(next) {
 
 function toggleAdvancedTreatment() {
   advancedTreatment.classList.toggle("hidden", selectedValue("treatment") !== "swap");
+  refreshPreview();
+}
+
+function updateRoutingFields() {
+  holderAllocation.classList.toggle("hidden", distributionRoute() === "universal");
   refreshPreview();
 }
 
@@ -125,6 +151,10 @@ fundingChoices.forEach((input) => input.addEventListener("change", () => {
   selectLabel(input);
   refreshPreview();
 }));
+routeChoices.forEach((input) => input.addEventListener("change", () => {
+  selectLabel(input);
+  updateRoutingFields();
+}));
 form.querySelectorAll("input, select").forEach((input) => input.addEventListener("input", refreshPreview));
 walletButton.addEventListener("click", connectWallet);
 
@@ -135,7 +165,9 @@ form.addEventListener("submit", (event) => {
   const chain = value("network") === "base" ? "Base (8453)" : "Robinhood Chain (4663)";
   const asset = payoutAsset();
   const treatment = selectedValue("treatment");
-  const recipient = isUniversal() ? "$UNIVERSAL holders" : `${token} holders`;
+  const route = distributionRoute();
+  const allocations = routeAllocations();
+  const recipient = route === "universal" ? "$UNIVERSAL holders" : `${token} holders`;
   const currentAddress = address ? `It records ${shortAddress(address)} as the Bankr token. ` : "No Bankr token address is set yet. ";
   let sequence;
 
@@ -144,9 +176,9 @@ form.addEventListener("submit", (event) => {
       ? `Use an approved ${asset} deposit into the future UniversalRevenueVault; its RWA basket benefits ${recipient}.`
       : `Set the future UniversalRevenueVault as the Bankr fee recipient; Bankr fee revenue benefits ${recipient}.`;
   } else if (isNewLaunch()) {
-    sequence = `Create a prelaunch vault, launch the Bankr pair with that vault as fee recipient, then bind the token address and Doppler pool ID that Bankr returns. ${treatment === "swap" ? `Creator-token fee conversion to ${asset} remains blocked pending an audited adapter.` : `Use quote-only fees and reserve the paired ${asset} for ${recipient}.`}`;
+    sequence = `Create a prelaunch project router, launch the Bankr pair with that router as fee recipient, then bind the token address and Doppler pool ID that Bankr returns. ${treatment === "swap" ? `Creator-token fee conversion to ${asset} remains blocked pending an audited adapter.` : `Use quote-only fees for Bankr’s returned pair asset.`} The immutable route sends ${allocations.holders}% to ${recipient} and ${allocations.universal}% to the universal pool.`;
   } else {
-    sequence = `Create and bind a project vault, then update the existing Bankr token’s fee recipient to that vault if its fee beneficiary is still changeable. ${treatment === "swap" ? `Conversion to ${asset} remains blocked pending an audited adapter.` : `The paired ${asset} is reserved for ${recipient}.`}`;
+    sequence = `Create and bind a project router, then update the existing Bankr token’s fee recipient to that router if its fee beneficiary is still changeable. ${treatment === "swap" ? `Conversion to ${asset} remains blocked pending an audited adapter.` : `Bankr’s returned pair asset is routed without an extra protocol fee.`} The immutable route sends ${allocations.holders}% to ${recipient} and ${allocations.universal}% to the universal pool.`;
   }
 
   document.querySelector("#blueprint-state").textContent = "Blueprint ready";
@@ -154,6 +186,57 @@ form.addEventListener("submit", (event) => {
   output.textContent = `${displayPath()} blueprint ready for ${chain}. ${currentAddress}${sequence} No transaction has been generated in this preview.`;
 });
 
+function renderContributors(contributors) {
+  const list = document.querySelector("#contributor-list");
+  list.replaceChildren();
+  if (!contributors.length) {
+    const empty = document.createElement("div");
+    empty.className = "empty-contributors";
+    const title = document.createElement("span");
+    title.textContent = "NO VERIFIED CONTRIBUTORS YET";
+    const copy = document.createElement("p");
+    copy.textContent = "After the universal vault is deployed, this list will show every Bankr token that has verifiably routed fees to it—never a self-reported or unverified token.";
+    empty.append(title, copy);
+    list.append(empty);
+    return;
+  }
+
+  contributors.forEach((contributor) => {
+    const row = document.createElement("div");
+    row.className = "contributor-row";
+    const token = document.createElement("strong");
+    token.textContent = contributor.symbol ?? contributor.tokenAddress;
+    const detail = document.createElement("span");
+    detail.textContent = contributor.tokenAddress;
+    const status = document.createElement("em");
+    status.textContent = "Verified fee recipient";
+    row.append(token, detail, status);
+    list.append(row);
+  });
+}
+
+async function loadUniversalDirectory() {
+  const phase = document.querySelector("#universal-phase");
+  const vault = document.querySelector("#universal-vault");
+  const verification = document.querySelector("#universal-verification");
+  const count = document.querySelector("#universal-count");
+  try {
+    const response = await fetch(`${window.PAYMENTS_API_URL}/v1/universal`, { signal: AbortSignal.timeout(5000) });
+    if (!response.ok) throw new Error("unavailable");
+    const data = await response.json();
+    phase.textContent = data.phase === "not_deployed" ? "Awaiting deployment" : "Verified onchain";
+    vault.textContent = data.universalRevenueVault ?? "Not deployed";
+    verification.textContent = data.verification;
+    count.textContent = String(data.verifiedContributorCount ?? 0);
+    renderContributors(data.contributors ?? []);
+  } catch {
+    phase.textContent = "Directory offline";
+    verification.textContent = "The control plane could not be reached. No contributor data is shown until verification succeeds.";
+  }
+}
+
 switchProgramType(state.programType);
 toggleAdvancedTreatment();
+updateRoutingFields();
 loadApiStatus();
+loadUniversalDirectory();

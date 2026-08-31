@@ -34,6 +34,19 @@ test("platform endpoint never reports live payouts before configuration", async 
   assert.equal(response.body.livePayoutsEnabled, false);
 });
 
+test("universal directory never invents contributor tokens before deployment", async (t) => {
+  const server = createServer({ env: { EXECUTION_MODE: "disabled" } });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => server.close());
+
+  const response = await request(server, "/v1/universal");
+  assert.equal(response.status, 200);
+  assert.equal(response.body.phase, "not_deployed");
+  assert.deepEqual(response.body.contributors, []);
+  assert.equal(response.body.verifiedContributorCount, 0);
+});
+
 test("public port falls back to the Railway-compatible port", () => {
   assert.equal(publicPortFrom({}), 3000);
   assert.equal(publicPortFrom({ PUBLIC_PORT: "8081" }), 8081);
