@@ -47,7 +47,7 @@ export function createServer({ env = process.env, now = () => new Date().toISOSt
         livePayoutsEnabled: false,
         platformFeeBps: config.platformFeeBps,
         targetChain: config.chain,
-        payoutVaultFactory: config.factoryAddress,
+        projectRouterFactory: config.projectRouterFactory,
         storage: {
           databaseConfigured: config.databaseConfigured,
           queueConfigured: config.queueConfigured,
@@ -58,15 +58,15 @@ export function createServer({ env = process.env, now = () => new Date().toISOSt
     }
 
     if (pathname === "/v1/universal") {
-      const deployed = config.universalRevenueVault !== null;
+      const deployed = config.universalRewardsHub !== null;
       json(response, 200, {
         phase: deployed ? "awaiting_indexer" : "not_deployed",
-        universalRevenueVault: config.universalRevenueVault,
+        universalRewardsHub: config.universalRewardsHub,
         verifiedContributorCount: 0,
         contributors: [],
         verification: deployed
-          ? "Contributor records will appear only after the indexed Bankr fee recipient matches the universal vault."
-          : "No universal vault is deployed, so there are no verified contributor tokens to show.",
+          ? "Member records will appear only after the indexed Bankr fee recipient matches an enrolled Project Router."
+          : "No UniversalRewardsHub is deployed, so there are no verified member tokens to show.",
       });
       return;
     }

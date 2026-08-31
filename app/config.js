@@ -10,8 +10,8 @@ export function platformConfig(env = process.env) {
     executionMode,
     platformFeeBps: Number(env.PLATFORM_FEE_BPS ?? 500),
     chain: env.TARGET_CHAIN ?? "unconfigured",
-    factoryAddress: env.PAYOUT_VAULT_FACTORY ?? null,
-    universalRevenueVault: env.UNIVERSAL_REVENUE_VAULT ?? null,
+    projectRouterFactory: env.PROJECT_ROUTER_FACTORY ?? env.PAYOUT_VAULT_FACTORY ?? null,
+    universalRewardsHub: env.UNIVERSAL_REWARDS_HUB ?? env.UNIVERSAL_REVENUE_VAULT ?? null,
     databaseConfigured: Boolean(env.DATABASE_URL),
     queueConfigured: Boolean(env.REDIS_URL),
   });
