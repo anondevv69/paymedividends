@@ -29,6 +29,9 @@ contract PayoutVaultFactory {
         address swapAdapter,
         uint256 minimumRoundPayout
     );
+    event PrelaunchBankrDopplerProjectCreated(
+        address indexed creator, address indexed vault, address indexed payoutAsset, uint256 minimumRoundPayout
+    );
 
     error ZeroAddress();
     error InvalidFee();
@@ -73,6 +76,27 @@ contract PayoutVaultFactory {
         projectVaults.push(vault);
 
         emit ProjectCreated(msg.sender, vault, holderToken, sourceAsset, payoutAsset, swapAdapter, minimumRoundPayout);
+    }
+
+    /// @notice Creates a vault address before a Bankr/Doppler launch exists.
+    /// @dev Pass this address as Bankr's wallet fee recipient. After Bankr returns the token address
+    ///      and pool ID, the creator binds those values exactly once on the vault.
+    function createPrelaunchBankrDopplerProject(address payoutAsset, uint256 minimumRoundPayout)
+        external
+        returns (address vault)
+    {
+        if (payoutAsset == address(0)) revert ZeroAddress();
+        if (minimumRoundPayout == 0) revert InvalidConfiguration();
+
+        vault = implementation.clone();
+        PayoutVault(vault)
+            .initializePrelaunch(
+                msg.sender, platformKeeper, payoutAsset, platformTreasury, platformFeeBps, minimumRoundPayout
+            );
+        isProjectVault[vault] = true;
+        projectVaults.push(vault);
+
+        emit PrelaunchBankrDopplerProjectCreated(msg.sender, vault, payoutAsset, minimumRoundPayout);
     }
 
     function projectCount() external view returns (uint256) {

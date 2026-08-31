@@ -3,6 +3,7 @@ pragma solidity 0.8.26;
 
 import {IERC20} from "./interfaces/IERC20.sol";
 import {IPayoutSwapAdapter} from "./interfaces/IPayoutSwapAdapter.sol";
+import {IDopplerFeeManager} from "./interfaces/IDopplerFeeManager.sol";
 import {SafeTransferLib} from "./libraries/SafeTransferLib.sol";
 import {MerkleProofLib} from "./libraries/MerkleProofLib.sol";
 
@@ -28,6 +29,7 @@ contract PayoutVault {
     }
 
     bool public initialized;
+    bool public launchBound;
     bool public paused;
     uint256 private reentrancyState;
 
@@ -38,8 +40,10 @@ contract PayoutVault {
     address public payoutAsset;
     address public swapAdapter;
     address public platformTreasury;
+    address public dopplerFeeManager;
     uint16 public platformFeeBps;
     uint256 public minimumRoundPayout;
+    bytes32 public dopplerPoolId;
 
     uint256 public roundCount;
     uint256 public unallocatedPayout;
@@ -61,6 +65,29 @@ contract PayoutVault {
         address keeper
     );
     event PayoutAssetSwapped(uint256 sourceAmount, uint256 payoutReceived, uint256 minimumReceived);
+    event PrelaunchInitialized(
+        address indexed creator,
+        address indexed payoutAsset,
+        address indexed platformTreasury,
+        uint16 platformFeeBps,
+        uint256 minimumRoundPayout,
+        address keeper
+    );
+    event BankrDopplerLaunchBound(
+        address indexed holderToken,
+        address indexed sourceAsset,
+        address indexed feeManager,
+        bytes32 poolId,
+        address swapAdapter
+    );
+    event DopplerFeesClaimed(
+        address indexed feeManager,
+        bytes32 indexed poolId,
+        uint256 payoutAssetReceived,
+        uint256 sourceAssetReceived,
+        uint256 platformFee,
+        uint256 amountForHolders
+    );
     event RevenueSettled(uint256 grossPayout, uint256 platformFee, uint256 amountForHolders);
     event RoundOpened(
         uint256 indexed roundId,
@@ -74,6 +101,9 @@ contract PayoutVault {
     event KeeperSet(address indexed previousKeeper, address indexed newKeeper);
 
     error AlreadyInitialized();
+    error LaunchAlreadyBound();
+    error LaunchNotBound();
+    error DopplerNotConfigured();
     error NotCreator();
     error NotKeeper();
     error ZeroAddress();
@@ -106,6 +136,11 @@ contract PayoutVault {
         _;
     }
 
+    modifier whenLaunchBound() {
+        if (!launchBound) revert LaunchNotBound();
+        _;
+    }
+
     modifier nonReentrant() {
         if (reentrancyState != 1) revert Reentrancy();
         reentrancyState = 2;
@@ -124,27 +159,18 @@ contract PayoutVault {
         uint16 platformFeeBps_,
         uint256 minimumRoundPayout_
     ) external {
-        if (initialized) revert AlreadyInitialized();
         if (
             creator_ == address(0) || keeper_ == address(0) || holderToken_ == address(0) || sourceAsset_ == address(0)
                 || payoutAsset_ == address(0) || platformTreasury_ == address(0)
         ) revert ZeroAddress();
-        if (platformFeeBps_ > MAX_PLATFORM_FEE_BPS) revert InvalidFee();
-        if (minimumRoundPayout_ == 0) revert InvalidAmount();
         if (sourceAsset_ == payoutAsset_ && swapAdapter_ != address(0)) revert InvalidConfiguration();
         if (sourceAsset_ != payoutAsset_ && swapAdapter_ == address(0)) revert InvalidConfiguration();
 
-        initialized = true;
-        reentrancyState = 1;
-        creator = creator_;
-        keeper = keeper_;
+        _initializeBase(creator_, keeper_, payoutAsset_, platformTreasury_, platformFeeBps_, minimumRoundPayout_);
         holderToken = holderToken_;
         sourceAsset = sourceAsset_;
-        payoutAsset = payoutAsset_;
         swapAdapter = swapAdapter_;
-        platformTreasury = platformTreasury_;
-        platformFeeBps = platformFeeBps_;
-        minimumRoundPayout = minimumRoundPayout_;
+        launchBound = true;
 
         emit Initialized(
             creator_,
@@ -159,12 +185,102 @@ contract PayoutVault {
         );
     }
 
+    /// @notice Initializes a vault before a Bankr/Doppler token exists.
+    /// @dev The creator receives the vault address, uses it as Bankr's fee recipient, and can bind
+    ///      the returned token + pool metadata once. Payout processing is impossible before binding.
+    function initializePrelaunch(
+        address creator_,
+        address keeper_,
+        address payoutAsset_,
+        address platformTreasury_,
+        uint16 platformFeeBps_,
+        uint256 minimumRoundPayout_
+    ) external {
+        _initializeBase(creator_, keeper_, payoutAsset_, platformTreasury_, platformFeeBps_, minimumRoundPayout_);
+        emit PrelaunchInitialized(
+            creator_, payoutAsset_, platformTreasury_, platformFeeBps_, minimumRoundPayout_, keeper_
+        );
+    }
+
+    /// @notice Permanently binds a pre-launch vault to its Bankr/Doppler launch metadata.
+    /// @param sourceAsset_ The non-payout asset that can optionally be swapped into `payoutAsset`.
+    ///                     Use `payoutAsset` with a zero adapter for quote-only fee launches.
+    function bindBankrDopplerLaunch(
+        address holderToken_,
+        address sourceAsset_,
+        address swapAdapter_,
+        address feeManager_,
+        bytes32 poolId_
+    ) external onlyCreator {
+        if (launchBound) revert LaunchAlreadyBound();
+        if (
+            holderToken_ == address(0) || sourceAsset_ == address(0) || feeManager_ == address(0)
+                || poolId_ == bytes32(0)
+        ) {
+            revert ZeroAddress();
+        }
+        if (sourceAsset_ == payoutAsset && swapAdapter_ != address(0)) revert InvalidConfiguration();
+        if (sourceAsset_ != payoutAsset && swapAdapter_ == address(0)) revert InvalidConfiguration();
+
+        holderToken = holderToken_;
+        sourceAsset = sourceAsset_;
+        swapAdapter = swapAdapter_;
+        dopplerFeeManager = feeManager_;
+        dopplerPoolId = poolId_;
+        launchBound = true;
+
+        emit BankrDopplerLaunchBound(holderToken_, sourceAsset_, feeManager_, poolId_, swapAdapter_);
+    }
+
+    /// @notice Claims a configured Bankr/Doppler pool's fee share into this vault and immediately
+    ///         applies the platform split to payout-asset revenue.
+    /// @dev The vault must be the fee beneficiary at launch (or be made beneficiary later). Amounts
+    ///      are measured by token balance deltas rather than trusting the external return values.
+    function claimBankrDopplerFees()
+        external
+        onlyKeeper
+        whenLaunchBound
+        whenNotPaused
+        nonReentrant
+        returns (
+            uint256 payoutAssetReceived,
+            uint256 sourceAssetReceived,
+            uint256 platformFee,
+            uint256 amountForHolders
+        )
+    {
+        if (dopplerFeeManager == address(0) || dopplerPoolId == bytes32(0)) {
+            revert DopplerNotConfigured();
+        }
+        uint256 payoutBalanceBefore = IERC20(payoutAsset).balanceOf(address(this));
+        uint256 sourceBalanceBefore = sourceAsset == payoutAsset ? 0 : IERC20(sourceAsset).balanceOf(address(this));
+
+        IDopplerFeeManager(dopplerFeeManager).collectFees(dopplerPoolId);
+
+        uint256 payoutBalanceAfter = IERC20(payoutAsset).balanceOf(address(this));
+        if (payoutBalanceAfter < payoutBalanceBefore) revert AccountingInvariantBroken();
+        payoutAssetReceived = payoutBalanceAfter - payoutBalanceBefore;
+        if (sourceAsset != payoutAsset) {
+            uint256 sourceBalanceAfter = IERC20(sourceAsset).balanceOf(address(this));
+            if (sourceBalanceAfter < sourceBalanceBefore) revert AccountingInvariantBroken();
+            sourceAssetReceived = sourceBalanceAfter - sourceBalanceBefore;
+        }
+
+        if (payoutAssetReceived != 0) {
+            (, platformFee, amountForHolders) = _settlePayoutRevenue();
+        }
+        emit DopplerFeesClaimed(
+            dopplerFeeManager, dopplerPoolId, payoutAssetReceived, sourceAssetReceived, platformFee, amountForHolders
+        );
+    }
+
     /// @notice Converts source revenue into the configured payout asset and applies the platform split.
     /// @dev The adapter address is fixed when this vault is created. `routeData` is interpreted only
     ///      by that trusted adapter; the vault measures actual balance received instead of trusting a quote.
     function swapAndSettle(uint256 sourceAmount, uint256 minimumPayoutReceived, bytes calldata routeData)
         external
         onlyKeeper
+        whenLaunchBound
         whenNotPaused
         nonReentrant
         returns (uint256 grossPayout, uint256 platformFee, uint256 amountForHolders)
@@ -191,6 +307,7 @@ contract PayoutVault {
     function settlePayoutRevenue()
         external
         onlyKeeper
+        whenLaunchBound
         whenNotPaused
         nonReentrant
         returns (uint256 grossPayout, uint256 platformFee, uint256 amountForHolders)
@@ -202,6 +319,7 @@ contract PayoutVault {
     function openRound(uint64 checkpointBlock, bytes32 merkleRoot, uint32 recipientCount, uint256 amountReserved)
         external
         onlyKeeper
+        whenLaunchBound
         whenNotPaused
         returns (uint256 roundId)
     {
@@ -287,5 +405,37 @@ contract PayoutVault {
         }
         emit RevenueSettled(grossPayout, platformFee, amountForHolders);
     }
-}
 
+    function _initializeBase(
+        address creator_,
+        address keeper_,
+        address payoutAsset_,
+        address platformTreasury_,
+        uint16 platformFeeBps_,
+        uint256 minimumRoundPayout_
+    ) private {
+        if (initialized) revert AlreadyInitialized();
+        if (
+            creator_ == address(0) || keeper_ == address(0) || payoutAsset_ == address(0)
+                || platformTreasury_ == address(0)
+        ) {
+            revert ZeroAddress();
+        }
+        if (platformFeeBps_ > MAX_PLATFORM_FEE_BPS) revert InvalidFee();
+        if (minimumRoundPayout_ == 0) revert InvalidAmount();
+
+        initialized = true;
+        reentrancyState = 1;
+        creator = creator_;
+        keeper = keeper_;
+        payoutAsset = payoutAsset_;
+        platformTreasury = platformTreasury_;
+        platformFeeBps = platformFeeBps_;
+        minimumRoundPayout = minimumRoundPayout_;
+    }
+
+    /// @dev Supports Doppler fee paths that transfer a position NFT to the fee beneficiary.
+    function onERC721Received(address, address, uint256, bytes calldata) external pure returns (bytes4) {
+        return 0x150b7a02;
+    }
+}
