@@ -40,13 +40,13 @@ function isNewLaunch() {
 }
 
 function displayPath() {
-  if (isUniversal()) return "Universal pool partner";
-  return isNewLaunch() ? "New Bankr token" : "Existing Bankr token";
+  if (isUniversal()) return "Join universal pool";
+  return isNewLaunch() ? "Launch a Bankr token" : "Associate a Bankr token";
 }
 
 function payoutAsset() {
   if (isUniversal()) return value("contribution-asset");
-  return selectedValue("treatment") === "swap" ? value("payout-target") : value("paired-asset");
+  return selectedValue("treatment") === "swap" ? value("payout-target") : "Bankr paired asset";
 }
 
 function refreshPreview() {
