@@ -73,6 +73,9 @@ transaction, claim launch fees, or move payout funds. The production sequence is
 a queue, deploy audited chain/venue adapters, create the factory, then enable a separately secured
 keeper after a security review.
 
+The API uses Railway's assigned `PORT` and an optional `PUBLIC_PORT` (default `3000`). This makes the
+healthcheck and service domain work even if an existing Railway domain was previously pinned to 3000.
+
 ## Current scope
 
 The factory accepts a fixed platform fee selected when the platform factory is deployed. The tests

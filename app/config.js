@@ -17,7 +17,14 @@ export function platformConfig(env = process.env) {
 }
 
 export function portFrom(env = process.env) {
-  const parsed = Number.parseInt(env.PORT ?? "3000", 10);
-  return Number.isInteger(parsed) && parsed > 0 && parsed <= 65535 ? parsed : 3000;
+  return validPort(env.PORT, 3000);
 }
 
+export function publicPortFrom(env = process.env) {
+  return validPort(env.PUBLIC_PORT, 3000);
+}
+
+function validPort(value, fallback) {
+  const parsed = Number.parseInt(value ?? String(fallback), 10);
+  return Number.isInteger(parsed) && parsed > 0 && parsed <= 65535 ? parsed : 3000;
+}
