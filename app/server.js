@@ -1,5 +1,5 @@
 import http from "node:http";
-import { platformConfig, portFrom } from "./config.js";
+import { platformConfig, portFrom, publicPortFrom } from "./config.js";
 
 function json(response, status, body) {
   response.writeHead(status, {
@@ -61,10 +61,11 @@ export function createServer({ env = process.env, now = () => new Date().toISOSt
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const server = createServer();
-  const port = portFrom();
-  server.listen(port, "0.0.0.0", () => {
-    console.info(`paymedividends API listening on ${port}`);
-  });
+  const ports = new Set([portFrom(), publicPortFrom()]);
+  for (const port of ports) {
+    const server = createServer();
+    server.listen(port, "0.0.0.0", () => {
+      console.info(`paymedividends API listening on ${port}`);
+    });
+  }
 }
-

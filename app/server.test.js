@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { once } from "node:events";
+import { publicPortFrom } from "./config.js";
 import { createServer } from "./server.js";
 
 async function request(server, path) {
@@ -33,3 +34,8 @@ test("platform endpoint never reports live payouts before configuration", async 
   assert.equal(response.body.livePayoutsEnabled, false);
 });
 
+test("public port falls back to the Railway-compatible port", () => {
+  assert.equal(publicPortFrom({}), 3000);
+  assert.equal(publicPortFrom({ PUBLIC_PORT: "8081" }), 8081);
+  assert.equal(publicPortFrom({ PUBLIC_PORT: "invalid" }), 3000);
+});
