@@ -1,4 +1,5 @@
 import http from "node:http";
+import { pathToFileURL } from "node:url";
 import { platformConfig, portFrom, publicPortFrom } from "./config.js";
 
 function json(response, status, body) {
@@ -60,7 +61,7 @@ export function createServer({ env = process.env, now = () => new Date().toISOSt
   });
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const ports = new Set([portFrom(), publicPortFrom()]);
   for (const port of ports) {
     const server = createServer();

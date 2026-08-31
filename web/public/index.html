@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Set up transparent, token-holder payout programs." />
+    <title>Pay Me Dividends — Payout infrastructure for token communities</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,500;6..72,600;6..72,700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script>window.PAYMENTS_API_URL = __PUBLIC_API_URL__;</script>
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <div class="grain" aria-hidden="true"></div>
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="Pay Me Dividends home"><span class="brand-mark">PMD</span><span>Pay Me<br />Dividends</span></a>
+      <nav aria-label="Primary navigation">
+        <a href="#how-it-works">How it works</a>
+        <a href="#protocol">Protocol</a>
+        <a href="#test-lab">Test lab</a>
+      </nav>
+      <button class="wallet-button" id="wallet-button" type="button">Connect wallet <span>↗</span></button>
+    </header>
+
+    <main id="top">
+      <section class="hero section-shell">
+        <div class="eyebrow"><span class="pulse"></span> Payout infrastructure · test environment</div>
+        <h1>Let a token<br />pay its <em>holders.</em></h1>
+        <p class="hero-copy">Configure a transparent payout vault for a single token, or route fees into a shared RWA rewards pool. Test the full flow before anything touches mainnet.</p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="#test-lab">Build a test program <span>↓</span></a>
+          <a class="button button-quiet" href="#how-it-works">See the mechanics <span>↘</span></a>
+        </div>
+        <div class="hero-stats" aria-label="Platform test environment status">
+          <div><strong>05.00%</strong><span>visible protocol fee</span></div>
+          <div><strong>0</strong><span>live contracts deployed</span></div>
+          <div><strong id="api-status">Checking</strong><span>control plane</span></div>
+        </div>
+      </section>
+
+      <section class="ticker" aria-label="Supported payout concepts">
+        <span>HOLDER SNAPSHOTS</span><i>✦</i><span>MERKLE CLAIMS</span><i>✦</i><span>FIXED FEE POLICY</span><i>✦</i><span>ISOLATED VAULTS</span><i>✦</i><span>NO CUSTODY KEYS</span><i>✦</i>
+      </section>
+
+      <section class="section-shell how" id="how-it-works">
+        <div class="section-kicker">01 / The model</div>
+        <div class="section-heading split-heading"><h2>Two payout paths.<br /><em>One clear ledger.</em></h2><p>Every asset, fee, snapshot, and claim round should be inspectable. A creator can configure the program, but cannot withdraw funds reserved for holders.</p></div>
+        <div class="path-grid">
+          <article class="path-card lime-card">
+            <span class="card-number">A</span>
+            <h3>Dedicated<br />payout vault</h3>
+            <p>A token’s creator fees or deposits serve that token’s own holders.</p>
+            <ol><li>Revenue enters the project vault</li><li>5% protocol fee is split visibly</li><li>95% is reserved for a holder claim round</li></ol>
+          </article>
+          <article class="path-card dark-card">
+            <span class="card-number">B</span>
+            <h3>Universal<br />RWA pool</h3>
+            <p>Partner tokens funnel approved assets into a shared rewards basket for the universal token.</p>
+            <ol><li>Partner fees arrive as WETH or approved assets</li><li>Basket policy buys allowed RWA assets</li><li>Universal-token holders claim their share</li></ol>
+          </article>
+        </div>
+      </section>
+
+      <section class="protocol-section" id="protocol">
+        <div class="section-shell">
+          <div class="section-kicker">02 / What gets deployed</div>
+          <div class="section-heading"><h2>Small contracts.<br /><em>Hard boundaries.</em></h2></div>
+          <div class="contract-list">
+            <div class="contract-row"><span class="contract-index">01</span><div><h3>PayoutVaultFactory</h3><p>Creates an isolated vault for every dedicated token program. Its fee policy and platform treasury are set at deployment.</p></div><span class="contract-state">Deploy first</span></div>
+            <div class="contract-row"><span class="contract-index">02</span><div><h3>PayoutVault</h3><p>Receives revenue, settles the fixed fee, reserves a Merkle round, and lets holders claim. One vault per project.</p></div><span class="contract-state">Factory clone</span></div>
+            <div class="contract-row"><span class="contract-index">03</span><div><h3>Venue swap adapter</h3><p>A separate, audited adapter for one known chain and venue. It never exposes arbitrary router calls.</p></div><span class="contract-state">After fork test</span></div>
+            <div class="contract-row"><span class="contract-index">04</span><div><h3>UniversalRevenueVault</h3><p>Optional second product: receives protocol/partner revenue and applies the transparent RWA-basket policy.</p></div><span class="contract-state">Phase two</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="lab section-shell" id="test-lab">
+        <div class="section-kicker">03 / Test lab</div>
+        <div class="section-heading split-heading"><h2>Launch a payout vault.<br /><em>Without launching one.</em></h2><p>Configure a test program locally. This preview never asks for token approvals, moves money, or sends a transaction.</p></div>
+        <div class="lab-grid">
+          <form class="builder" id="program-form">
+            <div class="builder-head"><span>Configuration</span><strong>Test mode</strong></div>
+            <fieldset>
+              <legend>1. Program type</legend>
+              <div class="choice-grid">
+                <label class="choice selected"><input type="radio" name="programType" value="dedicated" checked /><span><b>Dedicated payout</b><small>Fund this token’s holders</small></span></label>
+                <label class="choice"><input type="radio" name="programType" value="universal" /><span><b>Universal contributor</b><small>Fund the shared RWA pool</small></span></label>
+              </div>
+            </fieldset>
+            <fieldset>
+              <legend>2. Network and token</legend>
+              <div class="field-row">
+                <label>Network<select id="network" name="network"><option value="robinhood">Robinhood Chain</option><option value="base">Base</option></select></label>
+                <label>Token symbol<input id="token-symbol" name="tokenSymbol" value="TEST" maxlength="12" autocomplete="off" /></label>
+              </div>
+              <label>Token address <input id="token-address" name="tokenAddress" placeholder="0x… (optional in test mode)" autocomplete="off" /></label>
+            </fieldset>
+            <fieldset class="dedicated-only">
+              <legend>3. Holder payout settings</legend>
+              <div class="field-row">
+                <label>Distribute<select id="payout-asset" name="payoutAsset"><option value="WETH">WETH</option><option value="MSFT">$MSFT</option><option value="NVDA">$NVDA</option></select></label>
+                <label>Cadence<select id="cadence" name="cadence"><option value="Hourly">Hourly</option><option value="Daily">Daily</option><option value="30 minutes">Every 30 min</option></select></label>
+              </div>
+              <div class="choice-grid single-line">
+                <label class="choice selected"><input type="radio" name="allocation" value="Pro-rata" checked /><span><b>Pro-rata</b><small>Based on snapshot balance</small></span></label>
+                <label class="choice"><input type="radio" name="allocation" value="Equal" /><span><b>Equal share</b><small>One share per eligible wallet</small></span></label>
+              </div>
+            </fieldset>
+            <fieldset class="universal-only hidden">
+              <legend>3. Universal contribution</legend>
+              <div class="field-row">
+                <label>Contribution asset<select id="contribution-asset" name="contributionAsset"><option value="WETH">WETH</option><option value="USDC">USDC</option><option value="approved RWA">Approved RWA</option></select></label>
+                <label>Attribution<input id="partner-name" name="partnerName" placeholder="Optional partner name" maxlength="30" /></label>
+              </div>
+              <p class="field-note">The contributor funds the universal pool. Its holders do not receive a separate claim entitlement unless they also hold the universal token.</p>
+            </fieldset>
+            <fieldset>
+              <legend>4. Fee policy</legend>
+              <div class="fee-preview"><span>Protocol fee</span><strong>5.00%</strong><span>Holder / pool allocation</span><strong>95.00%</strong></div>
+            </fieldset>
+            <button class="button button-primary build-button" type="submit">Create test blueprint <span>→</span></button>
+            <p class="form-safety">No wallet action occurs from this form.</p>
+          </form>
+
+          <aside class="blueprint" aria-live="polite">
+            <div class="builder-head"><span>Blueprint</span><strong id="blueprint-state">Waiting</strong></div>
+            <div class="blueprint-visual"><div class="node node-token" id="blueprint-token">$TEST</div><span>fees / deposits</span><div class="node node-vault" id="blueprint-vault">Project vault</div><span id="blueprint-arrow">5% protocol · 95% holders</span><div class="node node-asset" id="blueprint-asset">WETH claims</div></div>
+            <dl class="blueprint-details">
+              <div><dt>Network</dt><dd id="detail-network">Robinhood Chain</dd></div>
+              <div><dt>Program</dt><dd id="detail-program">Dedicated payout</dd></div>
+              <div><dt>Entitlement</dt><dd id="detail-entitlement">TEST holders</dd></div>
+              <div><dt>Contract status</dt><dd class="pending" id="detail-contract">Not deployed</dd></div>
+            </dl>
+            <div class="blueprint-output" id="blueprint-output">Fill the configuration and create a test blueprint. When the factory is deployed on a test chain, this screen will generate the exact wallet transaction instead.</div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="dashboard-section section-shell">
+        <div class="dashboard-top"><div><div class="section-kicker">Example / after deployment</div><h2>Project dashboard</h2></div><span class="demo-tag">Demo data</span></div>
+        <div class="dashboard-grid">
+          <article class="dashboard-card main-card"><div class="card-label">TEST / $NVDA program</div><strong>0.0000 <small>$NVDA</small></strong><p>Reserved for holders in the next payout round.</p><div class="progress"><span style="width: 0%"></span></div><div class="card-foot"><span>Minimum round: 1.00 $NVDA</span><span>Next check: not scheduled</span></div></article>
+          <article class="dashboard-card"><div class="card-label">Last round</div><strong>—</strong><p>No holder snapshot has been signed.</p></article>
+          <article class="dashboard-card"><div class="card-label">Claims paid</div><strong>0</strong><p>Funds remain untouched until an audited deployment.</p></article>
+        </div>
+      </section>
+
+      <section class="safety section-shell">
+        <div><div class="section-kicker">Before mainnet</div><h2>Test every<br /><em>assumption.</em></h2></div>
+        <ol><li><span>01</span><p>Deploy the factory to a test chain or fork with a multisig treasury and a disabled keeper.</p></li><li><span>02</span><p>Fork-test Bankr/Doppler fee collection against a real known pool—without real funds.</p></li><li><span>03</span><p>Run public holder-snapshot manifests, fuzz/invariant tests, and an independent audit.</p></li><li><span>04</span><p>Only then enable a limited, monitored keeper for live rounds.</p></li></ol>
+      </section>
+    </main>
+
+    <footer><span>© 2026 Pay Me Dividends</span><span>Test environment · No live payout execution</span><a href="https://paymedividends-production.up.railway.app/v1/platform" target="_blank" rel="noreferrer">API status ↗</a></footer>
+  </body>
+</html>
