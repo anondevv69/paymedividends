@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import {PayoutVault} from "../src/PayoutVault.sol";
 import {PayoutVaultFactory} from "../src/PayoutVaultFactory.sol";
 import {IPayoutSwapAdapter} from "../src/interfaces/IPayoutSwapAdapter.sol";
+import {IDopplerFeeManager} from "../src/interfaces/IDopplerFeeManager.sol";
 
 interface Vm {
     function prank(address) external;
@@ -83,6 +84,23 @@ contract MockSwapAdapter is IPayoutSwapAdapter {
         amountOut = (amountIn * numerator) / denominator;
         require(amountOut >= minAmountOut, "slippage");
         output.transfer(msg.sender, amountOut);
+    }
+}
+
+contract MockDopplerFeeManager is IDopplerFeeManager {
+    MockERC20 internal immutable token0;
+    MockERC20 internal immutable token1;
+
+    constructor(MockERC20 token0_, MockERC20 token1_) {
+        token0 = token0_;
+        token1 = token1_;
+    }
+
+    function collectFees(bytes32) external returns (uint256 amount0, uint256 amount1) {
+        amount0 = token0.balanceOf(address(this));
+        amount1 = token1.balanceOf(address(this));
+        if (amount0 != 0) token0.transfer(msg.sender, amount0);
+        if (amount1 != 0) token1.transfer(msg.sender, amount1);
     }
 }
 
@@ -202,6 +220,47 @@ contract PayoutVaultTest is Test {
         assertEq(nvda.balanceOf(HOLDER_A), 190e18);
     }
 
+    function test_prelaunch_bankr_doppler_vault_claims_then_splits_payout_asset() public {
+        MockDopplerFeeManager feeManager = new MockDopplerFeeManager(testToken, nvda);
+        bytes32 poolId = bytes32(uint256(123));
+
+        vm.prank(CREATOR);
+        address prelaunchAddress = factory.createPrelaunchBankrDopplerProject(address(nvda), 1e18);
+        PayoutVault prelaunchVault = PayoutVault(prelaunchAddress);
+
+        assertTrue(!prelaunchVault.launchBound());
+        vm.prank(KEEPER);
+        vm.expectRevert(PayoutVault.LaunchNotBound.selector);
+        prelaunchVault.settlePayoutRevenue();
+
+        vm.prank(CREATOR);
+        prelaunchVault.bindBankrDopplerLaunch(
+            address(testToken), address(testToken), address(adapter), address(feeManager), poolId
+        );
+        assertTrue(prelaunchVault.launchBound());
+        assertEq(prelaunchVault.holderToken(), address(testToken));
+
+        vm.prank(CREATOR);
+        vm.expectRevert(PayoutVault.LaunchAlreadyBound.selector);
+        prelaunchVault.bindBankrDopplerLaunch(
+            address(testToken), address(testToken), address(adapter), address(feeManager), poolId
+        );
+
+        testToken.mint(address(feeManager), 40e18);
+        nvda.mint(address(feeManager), 200e18);
+        vm.prank(KEEPER);
+        (uint256 payoutReceived, uint256 sourceReceived, uint256 platformFee, uint256 holderAmount) =
+            prelaunchVault.claimBankrDopplerFees();
+
+        assertEq(payoutReceived, 200e18);
+        assertEq(sourceReceived, 40e18);
+        assertEq(platformFee, 10e18);
+        assertEq(holderAmount, 190e18);
+        assertEq(nvda.balanceOf(PLATFORM_TREASURY), 10e18);
+        assertEq(prelaunchVault.unallocatedPayout(), 190e18);
+        assertEq(testToken.balanceOf(address(prelaunchVault)), 40e18);
+    }
+
     function _leaf(uint256 roundId, address account, uint256 amount) private pure returns (bytes32) {
         return keccak256(abi.encode(roundId, account, amount));
     }
@@ -215,4 +274,3 @@ contract PayoutVaultTest is Test {
         proof[0] = sibling;
     }
 }
-

@@ -20,6 +20,25 @@ TEST creator-fee revenue → project PayoutVault
 The platform fee is charged only on actual payout-asset revenue received by the vault. It is not a
 fee on users' wallets, existing liquidity, or a payout round that has already been reserved.
 
+## Bankr + Doppler on Robinhood Chain
+
+The first integration is Bankr launches on Robinhood Chain, which use Doppler pools. The deployment
+flow is intentionally two-step because Bankr needs a fee-recipient address before it creates the
+token:
+
+1. The creator calls `createPrelaunchBankrDopplerProject(payoutAsset, minimumRoundPayout)` and gets a vault address.
+2. The creator launches their Bankr token on Robinhood Chain with that vault as the wallet `feeRecipient`.
+3. Bankr returns the token address and Doppler `poolId`; the creator calls `bindBankrDopplerLaunch(...)` once.
+4. The shared Railway keeper calls `claimBankrDopplerFees()`. Direct payout-asset fees are split 5% to the
+   platform treasury and 95% to the project reserve. A second received asset can be converted through the
+   vault's fixed swap adapter before receiving the same split.
+
+The onchain integration is Doppler-compatible; `Bankr` is stored by the API as the launch source and
+the vault stores the fee manager + pool ID. Do not use a Bankr user API key as a platform secret. For
+Robinhood Chain launches, the creator should use their own Bankr wallet flow and approve the launch
+transaction. Bankr documents Robinhood as a supported Doppler launch chain, while its partner-key
+launch flow is Base-only: <https://docs.bankr.bot/token-launching/api-reference/deploy-token-launch/>.
+
 ## Contract model
 
 - `PayoutVaultFactory`: deploys a cheap isolated EIP-1167 vault for every project.
