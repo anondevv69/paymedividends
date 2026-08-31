@@ -8,9 +8,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,500;6..72,600;6..72,700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/styles.css?v=bankr-flow-1" />
     <script>window.PAYMENTS_API_URL = __PUBLIC_API_URL__;</script>
-    <script type="module" src="/app.js"></script>
+    <script type="module" src="/app.js?v=bankr-flow-1"></script>
   </head>
   <body>
     <div class="grain" aria-hidden="true"></div>
@@ -46,16 +46,22 @@
 
       <section class="section-shell how" id="how-it-works">
         <div class="section-kicker">01 / The model</div>
-        <div class="section-heading split-heading"><h2>Two payout paths.<br /><em>One clear ledger.</em></h2><p>Every asset, fee, snapshot, and claim round should be inspectable. A creator can configure the program, but cannot withdraw funds reserved for holders.</p></div>
+        <div class="section-heading split-heading"><h2>Three Bankr paths.<br /><em>One clear ledger.</em></h2><p>Bankr/Doppler is the launch and fee source. Every asset, fee, snapshot, and claim round should be inspectable.</p></div>
         <div class="path-grid">
           <article class="path-card lime-card">
             <span class="card-number">A</span>
-            <h3>Dedicated<br />payout vault</h3>
-            <p>A token’s creator fees or deposits serve that token’s own holders.</p>
-            <ol><li>Revenue enters the project vault</li><li>5% protocol fee is split visibly</li><li>95% is reserved for a holder claim round</li></ol>
+            <h3>Launch a<br />Bankr token</h3>
+            <p>Create a vault first, then use it as the Bankr fee recipient when launching a new token.</p>
+            <ol><li>Vault address is created</li><li>Bankr launches the paired token</li><li>Pool details bind to the vault</li></ol>
           </article>
           <article class="path-card dark-card">
             <span class="card-number">B</span>
+            <h3>Connect an<br />existing token</h3>
+            <p>An existing Bankr token changes its fee recipient to its dedicated payout vault.</p>
+            <ol><li>Confirm token and Doppler pool</li><li>Set fee recipient to the vault</li><li>Bind fees to its holders</li></ol>
+          </article>
+          <article class="path-card dark-card">
+            <span class="card-number">C</span>
             <h3>Universal<br />RWA pool</h3>
             <p>Partner tokens funnel approved assets into a shared rewards basket for the universal token.</p>
             <ol><li>Partner fees arrive as WETH or approved assets</li><li>Basket policy buys allowed RWA assets</li><li>Universal-token holders claim their share</li></ol>
@@ -69,8 +75,8 @@
           <div class="section-heading"><h2>Small contracts.<br /><em>Hard boundaries.</em></h2></div>
           <div class="contract-list">
             <div class="contract-row"><span class="contract-index">01</span><div><h3>PayoutVaultFactory</h3><p>Creates an isolated vault for every dedicated token program. Its fee policy and platform treasury are set at deployment.</p></div><span class="contract-state">Deploy first</span></div>
-            <div class="contract-row"><span class="contract-index">02</span><div><h3>PayoutVault</h3><p>Receives revenue, settles the fixed fee, reserves a Merkle round, and lets holders claim. One vault per project.</p></div><span class="contract-state">Factory clone</span></div>
-            <div class="contract-row"><span class="contract-index">03</span><div><h3>Venue swap adapter</h3><p>A separate, audited adapter for one known chain and venue. It never exposes arbitrary router calls.</p></div><span class="contract-state">After fork test</span></div>
+            <div class="contract-row"><span class="contract-index">02</span><div><h3>PayoutVault</h3><p>Receives Bankr/Doppler fees, settles the fixed fee, reserves a Merkle round, and lets holders claim. One vault per project.</p></div><span class="contract-state">Factory clone</span></div>
+            <div class="contract-row"><span class="contract-index">03</span><div><h3>Venue swap adapter</h3><p>Optional advanced treatment for creator-token fees: convert through a fixed, audited route into an approved payout asset. It never exposes arbitrary router calls.</p></div><span class="contract-state">After fork test</span></div>
             <div class="contract-row"><span class="contract-index">04</span><div><h3>UniversalRevenueVault</h3><p>Optional second product: receives protocol/partner revenue and applies the transparent RWA-basket policy.</p></div><span class="contract-state">Phase two</span></div>
           </div>
         </div>
@@ -78,46 +84,63 @@
 
       <section class="lab section-shell" id="test-lab">
         <div class="section-kicker">03 / Test lab</div>
-        <div class="section-heading split-heading"><h2>Launch a payout vault.<br /><em>Without launching one.</em></h2><p>Configure a test program locally. This preview never asks for token approvals, moves money, or sends a transaction.</p></div>
+        <div class="section-heading split-heading"><h2>Map a Bankr flow.<br /><em>Without launching one.</em></h2><p>Configure a Bankr/Doppler test program locally. This preview never asks for token approvals, moves money, or sends a transaction.</p></div>
         <div class="lab-grid">
           <form class="builder" id="program-form">
             <div class="builder-head"><span>Configuration</span><strong>Test mode</strong></div>
             <fieldset>
-              <legend>1. Program type</legend>
-              <div class="choice-grid">
-                <label class="choice selected"><input type="radio" name="programType" value="dedicated" checked /><span><b>Dedicated payout</b><small>Fund this token’s holders</small></span></label>
-                <label class="choice"><input type="radio" name="programType" value="universal" /><span><b>Universal contributor</b><small>Fund the shared RWA pool</small></span></label>
+              <legend>1. Bankr funding path</legend>
+              <div class="choice-grid choice-grid-three">
+                <label class="choice selected"><input type="radio" name="programType" value="newBankr" checked /><span><b>New Bankr token</b><small>Launch with our vault as fee recipient</small></span></label>
+                <label class="choice"><input type="radio" name="programType" value="existingBankr" /><span><b>Existing Bankr token</b><small>Connect its fee recipient to a vault</small></span></label>
+                <label class="choice"><input type="radio" name="programType" value="universal" /><span><b>Universal pool</b><small>Contribute fees to the RWA basket</small></span></label>
               </div>
             </fieldset>
             <fieldset>
-              <legend>2. Network and token</legend>
+              <legend>2. Bankr token details</legend>
               <div class="field-row">
-                <label>Network<select id="network" name="network"><option value="robinhood">Robinhood Chain</option><option value="base">Base</option></select></label>
+                <label>Bankr network<select id="network" name="network"><option value="robinhood">Robinhood Chain</option><option value="base">Base</option></select></label>
                 <label>Token symbol<input id="token-symbol" name="tokenSymbol" value="TEST" maxlength="12" autocomplete="off" /></label>
               </div>
-              <label>Token address <input id="token-address" name="tokenAddress" placeholder="0x… (optional in test mode)" autocomplete="off" /></label>
+              <label>Bankr token address <input id="token-address" name="tokenAddress" placeholder="0x… (returned by Bankr after launch)" autocomplete="off" /></label>
             </fieldset>
-            <fieldset class="dedicated-only">
-              <legend>3. Holder payout settings</legend>
+            <fieldset class="bankr-only">
+              <legend>3. Bankr pair and fee treatment</legend>
               <div class="field-row">
-                <label>Distribute<select id="payout-asset" name="payoutAsset"><option value="WETH">WETH</option><option value="MSFT">$MSFT</option><option value="NVDA">$NVDA</option></select></label>
+                <label>Bankr paired / fee asset<select id="paired-asset" name="pairedAsset"><option value="WETH">WETH</option><option value="MSFT">$MSFT</option><option value="NVDA">$NVDA</option></select></label>
                 <label>Cadence<select id="cadence" name="cadence"><option value="Hourly">Hourly</option><option value="Daily">Daily</option><option value="30 minutes">Every 30 min</option></select></label>
               </div>
+              <p class="field-note">In production, the paired asset and pool ID are returned by Bankr. The selector is only a test-preview stand-in until the Bankr launch connection is active.</p>
+              <div class="choice-grid single-line">
+                <label class="choice selected"><input type="radio" name="treatment" value="quoteOnly" checked /><span><b>Distribute Bankr pair</b><small>Use quote-only fees; holders receive the paired asset</small></span></label>
+                <label class="choice"><input type="radio" name="treatment" value="swap" /><span><b>Swap creator-token fees</b><small>Advanced: convert through an audited fixed route</small></span></label>
+              </div>
+              <div class="advanced-treatment hidden">
+                <label>Approved payout target<select id="payout-target" name="payoutTarget"><option value="MSFT">$MSFT</option><option value="NVDA">$NVDA</option><option value="WETH">WETH</option></select></label>
+                <p class="field-note">This path remains unavailable until the chain-specific adapter, liquidity, and slippage protections have been fork-tested and audited.</p>
+              </div>
+            </fieldset>
+            <fieldset class="bankr-only">
+              <legend>4. Holder allocation</legend>
               <div class="choice-grid single-line">
                 <label class="choice selected"><input type="radio" name="allocation" value="Pro-rata" checked /><span><b>Pro-rata</b><small>Based on snapshot balance</small></span></label>
                 <label class="choice"><input type="radio" name="allocation" value="Equal" /><span><b>Equal share</b><small>One share per eligible wallet</small></span></label>
               </div>
             </fieldset>
             <fieldset class="universal-only hidden">
-              <legend>3. Universal contribution</legend>
+              <legend>3. Universal pool contribution</legend>
               <div class="field-row">
                 <label>Contribution asset<select id="contribution-asset" name="contributionAsset"><option value="WETH">WETH</option><option value="USDC">USDC</option><option value="approved RWA">Approved RWA</option></select></label>
                 <label>Attribution<input id="partner-name" name="partnerName" placeholder="Optional partner name" maxlength="30" /></label>
               </div>
+              <div class="choice-grid single-line">
+                <label class="choice selected"><input type="radio" name="universalFunding" value="feeRecipient" checked /><span><b>Set fee recipient</b><small>Bankr fees route to the universal vault</small></span></label>
+                <label class="choice"><input type="radio" name="universalFunding" value="deposit" /><span><b>Send approved assets</b><small>Direct WETH/RWA contribution</small></span></label>
+              </div>
               <p class="field-note">The contributor funds the universal pool. Its holders do not receive a separate claim entitlement unless they also hold the universal token.</p>
             </fieldset>
             <fieldset>
-              <legend>4. Fee policy</legend>
+              <legend>5. Fee policy</legend>
               <div class="fee-preview"><span>Protocol fee</span><strong>5.00%</strong><span>Holder / pool allocation</span><strong>95.00%</strong></div>
             </fieldset>
             <button class="button button-primary build-button" type="submit">Create test blueprint <span>→</span></button>
@@ -126,14 +149,14 @@
 
           <aside class="blueprint" aria-live="polite">
             <div class="builder-head"><span>Blueprint</span><strong id="blueprint-state">Waiting</strong></div>
-            <div class="blueprint-visual"><div class="node node-token" id="blueprint-token">$TEST</div><span>fees / deposits</span><div class="node node-vault" id="blueprint-vault">Project vault</div><span id="blueprint-arrow">5% protocol · 95% holders</span><div class="node node-asset" id="blueprint-asset">WETH claims</div></div>
+            <div class="blueprint-visual"><div class="node node-token" id="blueprint-token">$TEST</div><span id="blueprint-source">Bankr feeRecipient</span><div class="node node-vault" id="blueprint-vault">Prelaunch payout vault</div><span id="blueprint-arrow">5% protocol · 95% holders</span><div class="node node-asset" id="blueprint-asset">WETH claims</div></div>
             <dl class="blueprint-details">
               <div><dt>Network</dt><dd id="detail-network">Robinhood Chain</dd></div>
-              <div><dt>Program</dt><dd id="detail-program">Dedicated payout</dd></div>
+              <div><dt>Funding path</dt><dd id="detail-program">New Bankr token</dd></div>
               <div><dt>Entitlement</dt><dd id="detail-entitlement">TEST holders</dd></div>
               <div><dt>Contract status</dt><dd class="pending" id="detail-contract">Not deployed</dd></div>
             </dl>
-            <div class="blueprint-output" id="blueprint-output">Fill the configuration and create a test blueprint. When the factory is deployed on a test chain, this screen will generate the exact wallet transaction instead.</div>
+            <div class="blueprint-output" id="blueprint-output">Choose a Bankr funding path and create a test blueprint. When the factory is deployed, this screen will generate the exact vault transaction and Bankr fee-recipient instructions.</div>
           </aside>
         </div>
       </section>

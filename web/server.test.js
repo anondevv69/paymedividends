@@ -14,8 +14,9 @@ async function request(server, pathname) {
 test("serves the application and injects its API endpoint", async () => {
   const { response, body } = await request(createWebServer({ env: { PUBLIC_API_URL: "https://api.example.test" } }), "/");
   assert.equal(response.status, 200);
+  assert.equal(response.headers.get("cache-control"), "no-store");
   assert.match(body, /https:\/\/api\.example\.test/);
-  assert.match(body, /Launch a payout vault/);
+  assert.match(body, /Bankr funding path/);
 });
 
 test("has an independent healthcheck", async () => {

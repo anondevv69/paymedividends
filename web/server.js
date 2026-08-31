@@ -38,7 +38,9 @@ export function createWebServer({ env = process.env } = {}) {
       }
       response.writeHead(200, {
         "content-type": asset.type,
-        "cache-control": asset.file === "index.html" ? "no-store" : "public, max-age=3600",
+        // Static files have stable URLs. Do not let a browser pair a newly deployed page with an
+        // older cached script or stylesheet while the app is still changing rapidly.
+        "cache-control": "no-store",
         "x-content-type-options": "nosniff",
       });
       response.end(body);
