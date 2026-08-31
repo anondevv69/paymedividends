@@ -51,9 +51,30 @@ Requires Foundry:
 forge test
 ```
 
+## Railway control plane
+
+Railway runs the shared API and worker for every project; users do not get their own Railway service.
+The API exposes only setup and status endpoints right now:
+
+```bash
+npm start
+# http://localhost:3000/health
+# http://localhost:3000/v1/platform
+```
+
+The worker is deliberately safe by default:
+
+```bash
+npm run start:worker
+```
+
+`EXECUTION_MODE=disabled` is the only accepted mode in this initial release. It cannot sign a
+transaction, claim launch fees, or move payout funds. The production sequence is: add Postgres and
+a queue, deploy audited chain/venue adapters, create the factory, then enable a separately secured
+keeper after a security review.
+
 ## Current scope
 
 The factory accepts a fixed platform fee selected when the platform factory is deployed. The tests
 use `500` basis points (5%). A new policy requires a new factory/version; it cannot silently change
 existing project economics.
-

@@ -1,0 +1,17 @@
+{
+  "name": "paymedividends",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Control plane and automation worker for isolated token payout vaults.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node app/server.js",
+    "start:worker": "node app/worker.js",
+    "test:app": "node --test app/**/*.test.js",
+    "test": "npm run test:app && forge test"
+  }
+}
+
