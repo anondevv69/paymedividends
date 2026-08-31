@@ -50,8 +50,15 @@ export function createWebServer({ env = process.env } = {}) {
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const port = Number.parseInt(process.env.PORT ?? "3000", 10);
-  createWebServer().listen(port, "0.0.0.0", () => {
-    console.info(`paymedividends web listening on ${port}`);
-  });
+  const ports = new Set([portFrom(process.env.PORT), portFrom(process.env.PUBLIC_PORT)]);
+  for (const port of ports) {
+    createWebServer().listen(port, "0.0.0.0", () => {
+      console.info(`paymedividends web listening on ${port}`);
+    });
+  }
+}
+
+function portFrom(value) {
+  const port = Number.parseInt(value ?? "3000", 10);
+  return Number.isInteger(port) && port > 0 && port <= 65535 ? port : 3000;
 }
