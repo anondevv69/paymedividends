@@ -91,9 +91,9 @@
             <fieldset>
               <legend>1. Bankr funding path</legend>
               <div class="choice-grid choice-grid-three">
-                <label class="choice selected"><input type="radio" name="programType" value="newBankr" checked /><span><b>New Bankr token</b><small>Launch with our vault as fee recipient</small></span></label>
-                <label class="choice"><input type="radio" name="programType" value="existingBankr" /><span><b>Existing Bankr token</b><small>Connect its fee recipient to a vault</small></span></label>
-                <label class="choice"><input type="radio" name="programType" value="universal" /><span><b>Universal pool</b><small>Contribute fees to the RWA basket</small></span></label>
+                <label class="choice selected"><input type="radio" name="programType" value="newBankr" checked /><span><b>Launch a Bankr token</b><small>Create it with our vault as fee recipient</small></span></label>
+                <label class="choice"><input type="radio" name="programType" value="existingBankr" /><span><b>Associate a Bankr token</b><small>Point an existing token’s fees to a vault</small></span></label>
+                <label class="choice"><input type="radio" name="programType" value="universal" /><span><b>Join universal pool</b><small>Route Bankr fees to the RWA basket</small></span></label>
               </div>
             </fieldset>
             <fieldset>
@@ -107,12 +107,12 @@
             <fieldset class="bankr-only">
               <legend>3. Bankr pair and fee treatment</legend>
               <div class="field-row">
-                <label>Bankr paired / fee asset<select id="paired-asset" name="pairedAsset"><option value="WETH">WETH</option><option value="MSFT">$MSFT</option><option value="NVDA">$NVDA</option></select></label>
+                <div class="bankr-pair-readout"><span>Bankr paired / fee asset</span><strong id="paired-asset">Returned by Bankr</strong><small>Loaded after a Bankr launch simulation or an existing-pool lookup.</small></div>
                 <label>Cadence<select id="cadence" name="cadence"><option value="Hourly">Hourly</option><option value="Daily">Daily</option><option value="30 minutes">Every 30 min</option></select></label>
               </div>
-              <p class="field-note">In production, the paired asset and pool ID are returned by Bankr. The selector is only a test-preview stand-in until the Bankr launch connection is active.</p>
+              <p class="field-note">This is intentionally not a hardcoded list. Bankr determines the valid pair options for the selected network and returns the actual quote asset, token address, and Doppler pool ID.</p>
               <div class="choice-grid single-line">
-                <label class="choice selected"><input type="radio" name="treatment" value="quoteOnly" checked /><span><b>Distribute Bankr pair</b><small>Use quote-only fees; holders receive the paired asset</small></span></label>
+                <label class="choice selected"><input type="radio" name="treatment" value="quoteOnly" checked /><span><b>Distribute Bankr pair</b><small>Use quote-only fees; holders receive Bankr’s returned pair asset</small></span></label>
                 <label class="choice"><input type="radio" name="treatment" value="swap" /><span><b>Swap creator-token fees</b><small>Advanced: convert through an audited fixed route</small></span></label>
               </div>
               <div class="advanced-treatment hidden">
@@ -156,7 +156,7 @@
               <div><dt>Entitlement</dt><dd id="detail-entitlement">TEST holders</dd></div>
               <div><dt>Contract status</dt><dd class="pending" id="detail-contract">Not deployed</dd></div>
             </dl>
-            <div class="blueprint-output" id="blueprint-output">Choose a Bankr funding path and create a test blueprint. When the factory is deployed, this screen will generate the exact vault transaction and Bankr fee-recipient instructions.</div>
+            <div class="blueprint-output" id="blueprint-output">Choose whether to launch a Bankr token, associate an existing one, or join the universal pool. When the factory is deployed, this screen will generate the exact vault transaction and Bankr fee-recipient instructions.</div>
           </aside>
         </div>
       </section>
