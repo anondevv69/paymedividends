@@ -108,7 +108,7 @@
               <legend>3. Bankr pair and fee treatment</legend>
               <div class="field-row">
                 <div class="bankr-pair-readout"><span>Bankr paired / fee asset</span><strong id="paired-asset">Returned by Bankr</strong><small>Loaded after a Bankr launch simulation or an existing-pool lookup.</small></div>
-                <label>Cadence<select id="cadence" name="cadence"><option value="Hourly">Hourly</option><option value="Daily">Daily</option><option value="30 minutes">Every 30 min</option></select></label>
+                <label>Cadence<input id="cadence" name="cadence" value="Hourly" readonly /></label>
               </div>
               <p class="field-note">This is intentionally not a hardcoded list. Bankr determines the valid pair options for the selected network and returns the actual quote asset, token address, and Doppler pool ID.</p>
               <div class="choice-grid single-line">

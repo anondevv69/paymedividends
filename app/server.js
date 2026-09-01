@@ -54,8 +54,8 @@ export function createServer({ env = process.env, now = () => new Date().toISOSt
           manifestDirConfigured: Boolean(config.manifestDir),
         },
         cadence: {
+          mode: "hourly",
           workerPollIntervalMs: config.workerPollIntervalMs,
-          rewardRoundIntervalMs: config.rewardRoundIntervalMs,
         },
         safety: "No private keys, launch-provider credentials, or live transaction execution are configured.",
       });

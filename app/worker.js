@@ -4,19 +4,14 @@ import { createTransferIndexer } from "./indexer.js";
 import { buildCommunitySnapshot } from "./manifest.js";
 import { createManifestStore } from "./storage.js";
 
+const HOUR_MS = 60 * 60 * 1000;
 const config = platformConfig();
-const interval = Math.max(Number.parseInt(process.env.WORKER_POLL_INTERVAL_MS ?? "1800000", 10), 30_000);
-const roundInterval = Math.max(
-  Number.parseInt(process.env.REWARD_ROUND_INTERVAL_MS ?? String(60 * 60 * 1000), 10),
-  interval,
-);
+const interval = config.workerPollIntervalMs;
 
 const indexer = createTransferIndexer();
 const manifests = createManifestStore({
   directory: process.env.MANIFEST_DIR || null,
 });
-
-let lastRoundAttemptAt = 0;
 
 export async function runWorkerTick({
   now = Date.now(),
@@ -32,6 +27,7 @@ export async function runWorkerTick({
     databaseConfigured: config.databaseConfigured,
     hub: config.universalRewardsHub,
     memberTokenCount: memberTokens.length,
+    cadence: "hourly",
     feeCollection: "skipped_until_execution_enabled",
     roundPublication: "idle",
     at: new Date(now).toISOString(),
@@ -42,10 +38,9 @@ export async function runWorkerTick({
   }
 
   status.message =
-    "Indexed snapshot pipeline is active in dry-run mode. Transactions remain disabled until EXECUTION_MODE is audited.";
+    "Hourly snapshot pipeline is active in dry-run mode. Transactions remain disabled until EXECUTION_MODE is audited.";
 
-  const dueForRound = now - lastRoundAttemptAt >= roundInterval;
-  if (dueForRound && memberTokens.length > 0 && snapshotBlock != null && allocationPerCommunity != null) {
+  if (memberTokens.length > 0 && snapshotBlock != null && allocationPerCommunity != null) {
     const published = [];
     for (const memberToken of memberTokens) {
       const balances = await indexer.getBalances(memberToken, snapshotBlock);
@@ -65,7 +60,6 @@ export async function runWorkerTick({
         holderCount: snapshot.manifest.holderCount,
       });
     }
-    lastRoundAttemptAt = now;
     status.roundPublication = published.length === 0 ? "no_balances" : "manifests_ready";
     status.published = published;
     status.message =
@@ -80,7 +74,7 @@ export async function runWorkerTick({
 }
 
 export function getWorkerDeps() {
-  return { indexer, manifests, config, interval, roundInterval };
+  return { indexer, manifests, config, interval, hourMs: HOUR_MS };
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
