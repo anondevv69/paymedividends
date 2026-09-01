@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createTransferIndexer } from "./indexer.js";
+import { createMemoryCheckpointStore } from "./checkpoint-store.js";
 import { buildCommunitySnapshot } from "./manifest.js";
 import { buildMerkleTree, claimLeaf, getProof, verifyProof } from "./merkle.js";
 import { createManifestStore } from "./storage.js";
@@ -82,17 +83,34 @@ test("transfer indexer reconstructs balances at a snapshot block", async () => {
   );
 });
 
-test("worker dry-run publishes manifests without sending transactions", async () => {
-  const { indexer } = getWorkerDeps();
+test("worker dry-run publishes manifests from on-demand snapshots", async () => {
   const token = "0xcccccccccccccccccccccccccccccccccccccccc";
-  await indexer.applyTransfer({
-    token,
-    blockNumber: 10,
-    logIndex: 0,
-    from: "0x0000000000000000000000000000000000000000",
-    to: "0x1111111111111111111111111111111111111111",
-    value: 100n,
-  });
+  const checkpointStoreImpl = createMemoryCheckpointStore();
+
+  const fetchImpl = async (_url, init) => {
+    const body = JSON.parse(init.body);
+    if (body.method !== "eth_getLogs") throw new Error(`unexpected rpc method ${body.method}`);
+    return {
+      ok: true,
+      async json() {
+        return {
+          jsonrpc: "2.0",
+          id: 1,
+          result: [{
+            blockNumber: "0xa",
+            logIndex: "0x0",
+            topics: [
+              "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4aa673f5b0ae4a2741fd",
+              "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "0x0000000000000000000000001111111111111111111111111111111111111111",
+            ],
+            data: "0x0000000000000000000000000000000000000000000000000000000000000064",
+            transactionHash: "0x1",
+          }],
+        };
+      },
+    };
+  };
 
   const logs = [];
   const status = await runWorkerTick({
@@ -100,13 +118,24 @@ test("worker dry-run publishes manifests without sending transactions", async ()
     memberTokens: [token],
     snapshotBlock: 10,
     allocationPerCommunity: 95n,
+    fetchImpl,
+    rpcUrl: "https://rpc.test",
+    checkpointStoreImpl,
     logger: { info: (line) => logs.push(line) },
   });
 
   assert.equal(status.executionMode, "disabled");
+  assert.equal(status.snapshotMode, "on_demand");
   assert.equal(status.cadence, "hourly");
   assert.equal(status.roundPublication, "manifests_ready");
   assert.equal(status.published.length, 1);
+  assert.equal(status.published[0].transferCount, 1);
   assert.equal(status.feeCollection, "skipped_until_execution_enabled");
   assert.equal(logs.length, 1);
+});
+
+test("getWorkerDeps exposes checkpoint store instead of persistent indexer", () => {
+  const deps = getWorkerDeps();
+  assert.ok(deps.checkpointStore);
+  assert.ok(deps.manifests);
 });

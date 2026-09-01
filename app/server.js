@@ -3,10 +3,13 @@ import { pathToFileURL } from "node:url";
 import { platformConfig, portFrom, publicPortFrom } from "./config.js";
 import {
   appendEnrollmentRequest,
+  attachHolderQualification,
+  attachSkippedHolderQualification,
   listEnrollmentRequests,
   validateEnrollmentRequest,
 } from "./enrollment.js";
 import { buildDirectoryIndex, formatDirectoryResponse } from "./directory.js";
+import { buildHolderStats, enrollmentGateDefaults } from "./holder-stats.js";
 
 function json(response, status, body, { cacheControl = "no-store" } = {}) {
   response.writeHead(status, {
@@ -262,18 +265,37 @@ export function createServer({
 
       try {
         const body = await readJsonBody(request);
-        const fields = validateEnrollmentRequest(body);
-        const record = {
+        const gateDefaults = enrollmentGateDefaults(config);
+        const fields = validateEnrollmentRequest(body, gateDefaults);
+        let record = {
           ...fields,
           requestedBy: String(body?.requestedBy ?? fields.feeBeneficiary).toLowerCase(),
           requestedAt: now(),
           id: `${fields.tokenAddress}-${Date.now()}`,
         };
+
+        if (fields.skipHolderChecks) {
+          record = attachSkippedHolderQualification(record);
+        } else {
+          const holderStats = await buildHolderStats({
+            tokenAddress: fields.tokenAddress,
+            rpcUrl: config.robinhoodRpcUrl,
+            fetchImpl,
+            minQualifiedBalance: fields.minQualifiedBalance,
+            minQualifiedHolders: fields.minQualifiedHolders,
+            minTotalHolders: fields.minTotalHolders,
+          });
+          record = attachHolderQualification(record, holderStats);
+        }
+
         await appendEnrollmentRequest(config.manifestDir, record);
         json(response, 201, {
           status: "queued",
           id: record.id,
-          message: "Enrollment request queued for governance Safe review.",
+          holderQualification: record.holderQualification,
+          message: record.holderQualification.passed
+            ? "Enrollment request queued for governance Safe review."
+            : "Enrollment request queued with holder gate failure — governance should reject or request more distribution.",
         });
       } catch (error) {
         if (error instanceof SyntaxError) {
@@ -281,6 +303,10 @@ export function createServer({
           return;
         }
         const message = error?.message ?? "invalid_request";
+        if (message === "holder_stats_unavailable") {
+          json(response, 502, { error: message, message: "Could not load holder screening data." });
+          return;
+        }
         const status = message.startsWith("invalid_") ? 400 : 500;
         json(response, status, { error: message });
       }
@@ -343,6 +369,34 @@ export function createServer({
     const beneficiaryMatch = pathname.match(/^\/v1\/bankr\/beneficiary-fees\/(0x[a-fA-F0-9]{40})$/);
     if (beneficiaryMatch) {
       serveBankrBeneficiaryFees(response, beneficiaryMatch[1], fetchImpl);
+      return;
+    }
+
+    const holderStatsMatch = pathname.match(/^\/v1\/tokens\/(0x[a-fA-F0-9]{40})\/holder-stats$/);
+    if (holderStatsMatch) {
+      const requestUrl = new URL(request.url, "http://localhost");
+      const gateDefaults = enrollmentGateDefaults(config);
+      buildHolderStats({
+        tokenAddress: holderStatsMatch[1],
+        rpcUrl: config.robinhoodRpcUrl,
+        fetchImpl,
+        minQualifiedBalance: requestUrl.searchParams.get("minQualifiedBalance")
+          ?? String(gateDefaults.minQualifiedBalance),
+        minQualifiedHolders: Number(
+          requestUrl.searchParams.get("minQualifiedHolders") ?? gateDefaults.minQualifiedHolders,
+        ),
+        minTotalHolders: Number(
+          requestUrl.searchParams.get("minTotalHolders") ?? gateDefaults.minTotalHolders,
+        ),
+      })
+        .then((payload) => {
+          json(response, 200, payload, { cacheControl: "public, max-age=60" });
+        })
+        .catch((error) => {
+          const message = error?.message ?? "holder_stats_failed";
+          const status = message.startsWith("invalid_") ? 400 : 502;
+          json(response, status, { error: message });
+        });
       return;
     }
 

@@ -72,12 +72,28 @@ For each enrollment request, Safe owners:
 
 ### To enable
 
-1. **Postgres** (`DATABASE_URL`) for transfer indexer cursor
-2. **Volume** on worker (`MANIFEST_DIR=/data/manifests` on Railway)
+1. **Optional Postgres** (`DATABASE_URL`) — see `docs/indexer-schema.sql` for checkpoint tables
+2. **Volume** on worker (`MANIFEST_DIR=/data/manifests` on Railway) — manifests + file checkpoints
 3. **Enrolled token list** fed to worker (env `ENROLLED_MEMBER_TOKENS` or read from chain events)
 4. **Governance / snapshot Safe** starts equal-slice rounds on Hub
 5. **projectAdmin** EIP-712-signs each community manifest
 6. **24h review** → finalize round → holders claim via Merkle proofs
+
+Holder snapshots are **on-demand**: the worker runs one `eth_getLogs` Transfer pass per token at `snapshotBlock`, optionally continuing from a file/Postgres checkpoint — it does **not** keep full transfer history in memory.
+
+### Enrollment holder gates (API)
+
+Default gates (override via env):
+
+```env
+ENROLLMENT_MIN_TOTAL_HOLDERS=100
+ENROLLMENT_MIN_QUALIFIED_HOLDERS=100
+ENROLLMENT_MIN_QUALIFIED_BALANCE=10000000
+```
+
+- `GET /v1/tokens/:tokenAddress/holder-stats` — Robinscan screening for the wizard
+- `POST /v1/enrollment-requests` — stores `holderQualification.passed` on each queue row
+- Site launches send `skipHolderChecks: true` / `launchSource: pmd`
 
 ### Railway worker env (today)
 

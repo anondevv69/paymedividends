@@ -60,6 +60,16 @@ Content-Type: application/json
 
 Governance polls: `GET /v1/enrollment-requests`
 
+## Holder screening (before enrollment)
+
+```http
+GET https://paymedividends-production.up.railway.app/v1/tokens/0x…/holder-stats?minQualifiedBalance=10000000
+```
+
+Returns Robinscan holder counts for default gates (100 total holders, 100 wallets ≥ 10M tokens). Payout rounds still use onchain Transfer snapshots.
+
+Enrollment POST stores `holderQualification.passed` on the queue row. Site launches may send `skipHolderChecks: true`.
+
 ## New token launch (not this skill)
 
 Site only: [app.paymedividends.xyz](https://app.paymedividends.xyz) — router + `POST /token-launches/deploy` with `feeRecipient: { type: "wallet", value: router }` and `quoteOnlyFees: true`.

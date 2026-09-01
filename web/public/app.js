@@ -13,6 +13,7 @@ const BANKR_BUILD_TRANSFER = "https://api.bankr.bot/public/doppler/build-transfe
 const ROBINHOOD_FEE_MANAGER = "0x4e3468951D49f2EEa976eD0D6e75fFCb44a9a544";
 const MIN_FEE_SHARE = 950000000000000000n; // 0.95e18
 const GET_SHARES_SELECTOR = "0x5ebb58fb";
+const DEFAULT_MIN_QUALIFIED_BALANCE = "10000000";
 
 const state = {
   connectedAccount: null,
@@ -26,6 +27,7 @@ const state = {
   pairedStockByLabel: new Map(),
   feesVerified: false,
   enrollmentSubmitted: false,
+  holderStats: null,
   directoryItems: [],
   directoryFilter: "all",
   busy: false,
@@ -526,6 +528,15 @@ function renderVerification({ shares, router, feeRecipientAddress, simulated, to
   setWizardStep(verified ? "verified" : "verify", verified ? "Fees verified" : "Verify fees");
   state.feesVerified = verified;
   refreshVerificationActions({ verified, recipientMatches });
+
+  const tokenAddress = state.bankrLookup?.tokenAddress ?? state.lastLaunch?.tokenAddress ?? tokenAddressForFlow();
+  if (verified && isAddress(tokenAddress)) {
+    void loadHolderStats(tokenAddress);
+  } else {
+    state.holderStats = null;
+    document.querySelector("#holder-stats-readout")?.classList.add("hidden");
+  }
+
   output.textContent = verified
     ? "Holder router verified — request Hub enrollment to join the shared RWA pool."
     : "Token found, but fees are not routed to the holder sink yet.";
@@ -653,6 +664,9 @@ async function submitEnrollmentRequest(event) {
       tokenSymbol: lookup?.tokenSymbol ?? null,
       pairedStockSymbol: lookup?.pairedStockSymbol ?? null,
       requestedBy: account,
+      minQualifiedBalance: DEFAULT_MIN_QUALIFIED_BALANCE,
+      skipHolderChecks: state.programType === "newBankr",
+      launchSource: state.programType === "newBankr" ? "pmd" : "external",
     };
 
     const response = await fetch(`${window.PAYMENTS_API_URL}/v1/enrollment-requests`, {
@@ -669,9 +683,14 @@ async function submitEnrollmentRequest(event) {
     state.enrollmentSubmitted = true;
     if (statusEl) {
       statusEl.classList.remove("hidden");
+      const gateLine = payload.holderQualification?.skipped
+        ? "Holder gates skipped for site launch."
+        : payload.holderQualification?.passed
+          ? `Holder gates passed (${payload.holderQualification.qualifiedHolders} qualified wallets).`
+          : `Holder gates failed (${payload.holderQualification?.qualifiedHolders ?? 0} qualified wallets) — governance may reject.`;
       statusEl.textContent =
         "Enrollment queued for governance Safe review (7-day onchain delay after enrollMemberRouter). "
-        + "Holder claims go live after enrollment + indexer rounds.";
+        + `${gateLine} Holder claims go live after enrollment + snapshot rounds.`;
     }
     output.textContent =
       `Enrollment request ${payload.id ?? "submitted"}. Governance will verify pool binding and enroll the router.`;
@@ -895,8 +914,47 @@ function formatUsd(value) {
 }
 
 function formatCount(value) {
-  if (value == null) return "—";
+  if (value == null || Number.isNaN(Number(value))) return "—";
   return Number(value).toLocaleString();
+}
+
+async function loadHolderStats(tokenAddress) {
+  if (!isAddress(tokenAddress)) return null;
+  try {
+    const response = await fetch(
+      `${window.PAYMENTS_API_URL}/v1/tokens/${tokenAddress}/holder-stats?minQualifiedBalance=${DEFAULT_MIN_QUALIFIED_BALANCE}`,
+      { signal: AbortSignal.timeout(20000) },
+    );
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error ?? "holder_stats_failed");
+    state.holderStats = payload;
+    renderHolderStats(payload);
+    return payload;
+  } catch (error) {
+    state.holderStats = null;
+    setReadout("holder-stats-readout", [
+      "Could not load holder screening stats from the API.",
+      error?.message ?? "Try again before requesting Hub enrollment.",
+    ], "verify-fail");
+    return null;
+  }
+}
+
+function renderHolderStats(stats) {
+  if (!stats) {
+    document.querySelector("#holder-stats-readout")?.classList.add("hidden");
+    return;
+  }
+
+  const threshold = formatCount(stats.minQualifiedBalanceHuman);
+  const lines = [
+    `Holder screening (Robinscan): ${formatCount(stats.qualifiedHolders)} wallets ≥ ${threshold} tokens · ${formatCount(stats.totalHolders)} total.`,
+    stats.passed
+      ? "Meets default enrollment gates (100 qualified + 100 total)."
+      : "Below default enrollment gates — governance may reject unless distribution improves.",
+    "Payout rounds still use onchain Transfer snapshots at snapshotBlock.",
+  ];
+  setReadout("holder-stats-readout", lines, stats.passed ? "verify-pass" : "verify-fail");
 }
 
 function statusLabel(status) {

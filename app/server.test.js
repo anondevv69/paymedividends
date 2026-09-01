@@ -59,13 +59,22 @@ test("universal directory builds from onchain and doppler sources", async (t) =>
 
   const fetchImpl = async (url, init) => {
     const body = init?.body ? JSON.parse(init.body) : null;
+    if (String(url).includes("robinscan.io/api/tokens")) {
+      return {
+        ok: true,
+        async json() {
+          return { status: "ok", total: 42, page: 1, pageSize: 25, items: [] };
+        },
+      };
+    }
+
     if (String(url).includes("prod.indexer.doppler.lol")) {
       const query = body?.query ?? "";
       return {
         ok: true,
         async json() {
           if (query.includes("userAssets")) {
-            return { data: { userAssets: { totalCount: 42 } } };
+            return { data: { userAssets: { totalCount: 999 } } };
           }
           return {
             data: {
@@ -137,6 +146,7 @@ test("universal directory builds from onchain and doppler sources", async (t) =>
   assert.equal(response.body.items[0].symbol, "DEVS");
   assert.equal(response.body.items[0].pairedStockSymbol, "MSFT");
   assert.equal(response.body.items[0].holderCount, 42);
+  assert.equal(response.body.items[0].holderCountSource, "robinscan");
 });
 
 test("platform endpoint exposes live factory and hub fields", async (t) => {
@@ -320,9 +330,40 @@ test("bankr beneficiary fees endpoint proxies wallet positions", async (t) => {
 
 test("enrollment requests can be queued and listed", async (t) => {
   const manifestDir = `/tmp/pmd-enroll-${Date.now()}`;
+  const fetchImpl = async (url, init) => {
+    const body = init?.body ? JSON.parse(init.body) : null;
+    if (String(url).includes("robinscan.io/api/tokens")) {
+      return {
+        ok: true,
+        async json() {
+          return {
+            status: "ok",
+            total: 150,
+            page: 1,
+            pageSize: 25,
+            items: Array.from({ length: 150 }, (_, index) => ({
+              holder: `0x${String(index + 1).padStart(40, "0")}`,
+              balance: String((index < 120 ? 10_000_000n : 1n) * 10n ** 18n),
+            })),
+          };
+        },
+      };
+    }
+    if (body?.method === "eth_call") {
+      return {
+        ok: true,
+        async json() {
+          return { jsonrpc: "2.0", id: 1, result: "0x0000000000000000000000000000000000000000000000000000000000000012" };
+        },
+      };
+    }
+    throw new Error(`unexpected url ${url}`);
+  };
+
   const server = createServer({
     env: { EXECUTION_MODE: "disabled", MANIFEST_DIR: manifestDir },
     now: () => "2026-09-01T00:00:00.000Z",
+    fetchImpl,
   });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
@@ -337,13 +378,64 @@ test("enrollment requests can be queued and listed", async (t) => {
       feeBeneficiary: "0x374d91a5674fa7cf86e725093b5848b97e1e13b4",
       tokenSymbol: "DEVS",
       pairedStockSymbol: "MSFT",
+      minQualifiedBalance: "10000000",
     },
   });
   assert.equal(post.status, 201);
   assert.equal(post.body.status, "queued");
+  assert.equal(post.body.holderQualification.passed, true);
+  assert.equal(post.body.holderQualification.qualifiedHolders, 120);
 
   const list = await request(server, "/v1/enrollment-requests");
   assert.equal(list.status, 200);
   assert.equal(list.body.total, 1);
   assert.equal(list.body.items[0].tokenSymbol, "DEVS");
+  assert.equal(list.body.items[0].holderQualification.passed, true);
+});
+
+test("holder stats endpoint returns qualification summary", async (t) => {
+  const fetchImpl = async (url, init) => {
+    const body = init?.body ? JSON.parse(init.body) : null;
+    if (String(url).includes("robinscan.io/api/tokens")) {
+      return {
+        ok: true,
+        async json() {
+          return {
+            status: "ok",
+            total: 2,
+            page: 1,
+            pageSize: 25,
+            items: [
+              { holder: "0x1111111111111111111111111111111111111111", balance: String(20_000_000n * 10n ** 18n) },
+              { holder: "0x2222222222222222222222222222222222222222", balance: String(1n * 10n ** 18n) },
+            ],
+          };
+        },
+      };
+    }
+    if (body?.method === "eth_call") {
+      return {
+        ok: true,
+        async json() {
+          return { jsonrpc: "2.0", id: 1, result: "0x0000000000000000000000000000000000000000000000000000000000000012" };
+        },
+      };
+    }
+    throw new Error(`unexpected url ${url}`);
+  };
+
+  const server = createServer({ env: { EXECUTION_MODE: "disabled" }, fetchImpl });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => server.close());
+
+  const response = await request(
+    server,
+    "/v1/tokens/0x80db362eab104ec378e19d0a3dcd5e84bafd4ba3/holder-stats?minQualifiedBalance=10000000",
+  );
+  assert.equal(response.status, 200);
+  assert.equal(response.body.totalHolders, 2);
+  assert.equal(response.body.qualifiedHolders, 1);
+  assert.equal(response.body.passed, false);
+  assert.equal(response.body.source, "robinscan");
 });

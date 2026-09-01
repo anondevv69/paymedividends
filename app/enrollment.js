@@ -30,7 +30,31 @@ export async function listEnrollmentRequests(manifestDir, { limit = 50 } = {}) {
   }
 }
 
-export function validateEnrollmentRequest(body) {
+export function parseEnrollmentGateInputs(body, defaults = {}) {
+  const minTotalHolders = body?.minTotalHolders ?? defaults.minTotalHolders ?? 100;
+  const minQualifiedHolders = body?.minQualifiedHolders ?? defaults.minQualifiedHolders ?? 100;
+  const minQualifiedBalance = body?.minQualifiedBalance ?? defaults.minQualifiedBalance ?? "10000000";
+  const skipHolderChecks = Boolean(body?.skipHolderChecks ?? body?.launchSource === "pmd");
+
+  if (!Number.isInteger(Number(minTotalHolders)) || Number(minTotalHolders) < 1) {
+    throw new Error("invalid_min_total_holders");
+  }
+  if (!Number.isInteger(Number(minQualifiedHolders)) || Number(minQualifiedHolders) < 1) {
+    throw new Error("invalid_min_qualified_holders");
+  }
+  if (!/^\d+$/.test(String(minQualifiedBalance))) {
+    throw new Error("invalid_min_qualified_balance");
+  }
+
+  return {
+    minTotalHolders: Number(minTotalHolders),
+    minQualifiedHolders: Number(minQualifiedHolders),
+    minQualifiedBalance: String(minQualifiedBalance),
+    skipHolderChecks,
+  };
+}
+
+export function validateEnrollmentRequest(body, defaults = {}) {
   const tokenAddress = String(body?.tokenAddress ?? "").toLowerCase();
   const router = String(body?.router ?? "").toLowerCase();
   const poolId = String(body?.poolId ?? "").toLowerCase();
@@ -39,6 +63,9 @@ export function validateEnrollmentRequest(body) {
   if (!/^0x[a-f0-9]{40}$/.test(router)) throw new Error("invalid_router");
   if (!/^0x[a-f0-9]{64}$/.test(poolId)) throw new Error("invalid_pool_id");
   if (!/^0x[a-f0-9]{40}$/.test(feeBeneficiary)) throw new Error("invalid_fee_beneficiary");
+
+  const gates = parseEnrollmentGateInputs(body, defaults);
+
   return {
     tokenAddress,
     router,
@@ -48,5 +75,36 @@ export function validateEnrollmentRequest(body) {
     pairedStockSymbol: body?.pairedStockSymbol ?? null,
     chain: "robinhood",
     status: "pending_governance",
+    launchSource: body?.launchSource ?? (gates.skipHolderChecks ? "pmd" : "external"),
+    ...gates,
+  };
+}
+
+export function attachHolderQualification(request, holderStats) {
+  return {
+    ...request,
+    holderQualification: {
+      passed: holderStats.passed,
+      skipped: false,
+      source: holderStats.source,
+      checkedAt: holderStats.checkedAt,
+      totalHolders: holderStats.totalHolders,
+      qualifiedHolders: holderStats.qualifiedHolders,
+      minQualifiedBalanceHuman: holderStats.minQualifiedBalanceHuman,
+      minQualifiedBalanceRaw: holderStats.minQualifiedBalanceRaw,
+      gates: holderStats.gates,
+    },
+  };
+}
+
+export function attachSkippedHolderQualification(request, reason = "pmd_launch") {
+  return {
+    ...request,
+    holderQualification: {
+      passed: true,
+      skipped: true,
+      reason,
+      checkedAt: new Date().toISOString(),
+    },
   };
 }
