@@ -4,9 +4,13 @@ import { once } from "node:events";
 import { publicPortFrom } from "./config.js";
 import { createServer, fetchBankrPairedStocks, fetchBankrBeneficiaryFees } from "./server.js";
 
-async function request(server, path) {
+async function request(server, path, { method = "GET", body } = {}) {
   const address = server.address();
-  const response = await fetch(`http://127.0.0.1:${address.port}${path}`);
+  const response = await fetch(`http://127.0.0.1:${address.port}${path}`, {
+    method,
+    headers: body ? { "content-type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
   return { status: response.status, body: await response.json() };
 }
 
@@ -224,4 +228,34 @@ test("bankr beneficiary fees endpoint proxies wallet positions", async (t) => {
   assert.equal(response.status, 200);
   assert.equal(response.body.eligibleCount, 1);
   assert.equal(response.body.items[0].symbol, "DEVS");
+});
+
+test("enrollment requests can be queued and listed", async (t) => {
+  const manifestDir = `/tmp/pmd-enroll-${Date.now()}`;
+  const server = createServer({
+    env: { EXECUTION_MODE: "disabled", MANIFEST_DIR: manifestDir },
+    now: () => "2026-09-01T00:00:00.000Z",
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => server.close());
+
+  const post = await request(server, "/v1/enrollment-requests", {
+    method: "POST",
+    body: {
+      tokenAddress: "0x80db362eab104ec378e19d0a3dcd5e84bafd4ba3",
+      router: "0x80e2a6d2b1c0196a6d1d0101509b4ea5a56507c5",
+      poolId: "0x130caf8b43343e182a79a4046932bd5623a87e9309e7c53e2d1efb4ec6b8e2a0",
+      feeBeneficiary: "0x374d91a5674fa7cf86e725093b5848b97e1e13b4",
+      tokenSymbol: "DEVS",
+      pairedStockSymbol: "MSFT",
+    },
+  });
+  assert.equal(post.status, 201);
+  assert.equal(post.body.status, "queued");
+
+  const list = await request(server, "/v1/enrollment-requests");
+  assert.equal(list.status, 200);
+  assert.equal(list.body.total, 1);
+  assert.equal(list.body.items[0].tokenSymbol, "DEVS");
 });

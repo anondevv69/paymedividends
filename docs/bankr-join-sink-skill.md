@@ -77,7 +77,28 @@ Platform constants (mainnet):
 
 Verify fee share: `getShares(poolId, router) >= 0.95e18`.
 
-### 4. Governance enrollment (off-bot)
+### 4. Request Hub enrollment
+
+After onchain verify (≥95% fee share to router):
+
+```http
+POST https://api.paymedividends.xyz/v1/enrollment-requests
+Content-Type: application/json
+
+{
+  "tokenAddress": "0x80db362eab104ec378e19d0a3dcd5e84bafd4ba3",
+  "router": "0x80e2a6d2b1c0196a6d1d0101509b4ea5a56507c5",
+  "poolId": "0x130caf8b43343e182a79a4046932bd5623a87e9309e7c53e2d1efb4ec6b8e2a0",
+  "feeBeneficiary": "0x374d91a5674fa7cf86e725093b5848b97e1e13b4",
+  "tokenSymbol": "DEVS",
+  "pairedStockSymbol": "MSFT",
+  "requestedBy": "0x374d91a5674fa7cf86e725093b5848b97e1e13b4"
+}
+```
+
+Governance reviews the queue (`GET /v1/enrollment-requests`) then calls `enrollMemberRouter` on the Safe.
+
+### 5. Governance enrollment (off-bot)
 
 After onchain verify, submit to Pay Me Dividends governance Safe:
 
@@ -118,7 +139,7 @@ Bot:
 
    Or I can walk you through each transaction."
 
-  [Optional] POST enrollment intent to Pay Me Dividends API when available
+  POST /v1/enrollment-requests after verify (same body as site wizard)
 ```
 
 ## What the bot must NOT do
