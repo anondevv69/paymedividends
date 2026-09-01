@@ -25,6 +25,9 @@ Bankr/Doppler fee stream (meme token + quote/RWA)
 - `ProjectRouterFactory` creates one isolated router per enrolled Bankr/Doppler token.
 - `ProjectRouter` forwards approved quote/RWA assets to the Hub and applies an immutable policy to
   any received meme asset: quote-only bypass, burn, lock, or a bounded audited swap adapter.
+- The initial Router intentionally handles **received** fee balances only. Its direct Bankr/Doppler
+  harvest method is not implemented until a live pool's claim ABI has been fork-verified. This avoids
+  pretending that the old global `DOPPLER_FEE_MANAGER` placeholder is a verified integration.
 - Snapshot roots must be produced from reproducible manifests and authorized in v1; a permissionless
   publisher needs bonding/challenge rules before it can safely earn a keeper bounty.
 
@@ -76,6 +79,30 @@ launch flow is Base-only: <https://docs.bankr.bot/token-launching/api-reference/
 
 Do **not** deploy a new Doppler fee manager: it is venue infrastructure. Do **not** deploy the old
 `PayoutVaultFactory` as the shared index; it is the v1 foundation below, not the final v2 system.
+
+### Current v2 test coverage
+
+The local v2 suite verifies the core economic boundaries before a public testnet deployment:
+
+- deposit accounting applies the fixed Hub fee once and reserves net rewards;
+- every active community receives the same maximum share in an equal-slice round;
+- each community's root cannot claim above its equal allocation;
+- approved RWA assets route directly to their own Hub bucket;
+- a fixed swap adapter can convert a meme fee balance into the Hub settlement asset (SPY in the
+  intended mainnet configuration).
+
+Run the deployment script only against Robinhood Chain testnet first:
+
+```bash
+set -a && source .env.deploy && set +a
+SETTLEMENT_ASSET=0x7943e237c7F95DA44E0301572D358911207852Fa \
+forge script script/DeployUniversalV2.s.sol:DeployUniversalV2 \
+  --rpc-url "$ROBINHOOD_TESTNET_RPC_URL" --broadcast
+```
+
+It deploys an empty `UniversalRewardsHub` and `ProjectRouterFactory`, with no enrolled project and
+no swap adapter. Do not use the mainnet SPY asset or `--broadcast` on chain 4663 until the testnet
+deployment is verified and the Bankr/Doppler fee-claim path has been fork-tested.
 
 ## Archived v1 contract model
 
