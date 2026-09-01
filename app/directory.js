@@ -139,11 +139,21 @@ async function readRouterState(rpcUrl, router, fetchImpl) {
   };
 }
 
+function isZeroPoolId(poolId) {
+  if (!poolId) return true;
+  const hex = String(poolId).replace(/^0x/, "").toLowerCase();
+  return !hex || /^0+$/.test(hex);
+}
+
 async function readFeeShare(rpcUrl, poolId, beneficiary, fetchImpl) {
-  if (!poolId || !beneficiary) return 0n;
-  const data = `${GET_SHARES}${padPoolId(poolId)}${encodeAddress(beneficiary).slice(2)}`;
-  const raw = await ethCall(rpcUrl, FEE_MANAGER, data, fetchImpl);
-  return decodeUint256(raw);
+  if (!poolId || !beneficiary || isZeroPoolId(poolId)) return 0n;
+  try {
+    const data = `${GET_SHARES}${padPoolId(poolId)}${encodeAddress(beneficiary).slice(2)}`;
+    const raw = await ethCall(rpcUrl, FEE_MANAGER, data, fetchImpl);
+    return decodeUint256(raw);
+  } catch {
+    return 0n;
+  }
 }
 
 function padPoolId(poolId) {
@@ -349,8 +359,12 @@ export async function buildDirectoryIndex({
         : null;
 
     let hubState = {};
-    if (tokenAddress) {
-      hubState = await readHubMemberState(rpcUrl, hub, tokenAddress, fetchImpl);
+    if (tokenAddress && /^0x[a-f0-9]{40}$/.test(tokenAddress) && !/^0x0{40}$/.test(tokenAddress)) {
+      try {
+        hubState = await readHubMemberState(rpcUrl, hub, tokenAddress, fetchImpl);
+      } catch {
+        hubState = {};
+      }
     }
 
     const metrics = tokenAddress
