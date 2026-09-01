@@ -1,5 +1,7 @@
 # Bankr skill: Join the Pay Me Dividends holder sink
 
+Installable skill files live at [`skills/join-holder-sink/`](../skills/join-holder-sink/) (Bankr `SKILL.md` + `catalog.json`). For Bankr Discover catalog listing, open a PR to [BankrBot/skills](https://github.com/BankrBot/skills) copying that folder under a `paymedividends/` provider path.
+
 Natural-language entry points:
 
 - "Join the Pay Me Dividends holder sink"
