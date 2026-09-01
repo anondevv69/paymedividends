@@ -2,16 +2,53 @@ import http from "node:http";
 import { pathToFileURL } from "node:url";
 import { platformConfig, portFrom, publicPortFrom } from "./config.js";
 
-function json(response, status, body) {
+function json(response, status, body, { cacheControl = "no-store" } = {}) {
   response.writeHead(status, {
     "content-type": "application/json; charset=utf-8",
-    "cache-control": "no-store",
+    "cache-control": cacheControl,
     "access-control-allow-origin": "*",
   });
   response.end(JSON.stringify(body));
 }
 
-export function createServer({ env = process.env, now = () => new Date().toISOString() } = {}) {
+const ROBINSCAN_STOCKS_API = "https://robinscan.io/api/stocks";
+
+export async function fetchRobinhoodStocks(fetchImpl = fetch) {
+  const stocks = [];
+  let page = 1;
+  let total = 0;
+
+  while (page <= 20) {
+    const response = await fetchImpl(`${ROBINSCAN_STOCKS_API}?page=${page}`, {
+      headers: { accept: "application/json" },
+    });
+    if (!response.ok) {
+      throw new Error(`Robinscan returned ${response.status}`);
+    }
+
+    const data = await response.json();
+    const items = data.items ?? [];
+    total = data.total ?? total;
+    stocks.push(...items);
+    if (!items.length || stocks.length >= total) break;
+    page += 1;
+  }
+
+  stocks.sort((left, right) => {
+    if (left.isOfficialStock !== right.isOfficialStock) {
+      return Number(right.isOfficialStock) - Number(left.isOfficialStock);
+    }
+    return String(left.symbol).localeCompare(String(right.symbol));
+  });
+
+  return { items: stocks, total: total || stocks.length, source: "robinscan" };
+}
+
+export function createServer({
+  env = process.env,
+  now = () => new Date().toISOString(),
+  fetchImpl = fetch,
+} = {}) {
   return http.createServer((request, response) => {
     if (request.method === "OPTIONS") {
       response.writeHead(204, {
@@ -80,6 +117,20 @@ export function createServer({ env = process.env, now = () => new Date().toISOSt
           ? "Create a Project Router, point Bankr fees to it, then wait for Safe enrollment. Verified members appear here after indexing."
           : "No UniversalRewardsHub is configured on the API yet.",
       });
+      return;
+    }
+
+    if (pathname === "/v1/robinhood/stocks") {
+      fetchRobinhoodStocks(fetchImpl)
+        .then((payload) => {
+          json(response, 200, payload, { cacheControl: "public, max-age=300" });
+        })
+        .catch((error) => {
+          json(response, 502, {
+            error: "robinscan_unavailable",
+            message: error?.message ?? "Could not load Robinhood stocks.",
+          });
+        });
       return;
     }
 
