@@ -47,18 +47,27 @@ test("universal directory never invents contributor tokens before deployment", a
   assert.equal(response.body.verifiedContributorCount, 0);
 });
 
-test("universal directory exposes only the configured v2 Hub address", async (t) => {
-  const hub = "0x1111111111111111111111111111111111111111";
-  const server = createServer({ env: { EXECUTION_MODE: "disabled", UNIVERSAL_REWARDS_HUB: hub } });
+test("platform endpoint exposes live factory and hub fields", async (t) => {
+  const hub = "0x6844D0814E904722777A48Ae2CF7C4b8F78a19e5";
+  const factory = "0x4AD615B99e2B6E8e2C322c657Ac8f81F1806A3a7";
+  const server = createServer({
+    env: {
+      EXECUTION_MODE: "disabled",
+      UNIVERSAL_REWARDS_HUB: hub,
+      PROJECT_ROUTER_FACTORY: factory,
+      TARGET_CHAIN: "robinhood",
+    },
+  });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
   t.after(() => server.close());
 
-  const response = await request(server, "/v1/universal");
+  const response = await request(server, "/v1/platform");
   assert.equal(response.status, 200);
-  assert.equal(response.body.phase, "awaiting_indexer");
+  assert.equal(response.body.phase, "contracts_live");
   assert.equal(response.body.universalRewardsHub, hub);
-  assert.deepEqual(response.body.contributors, []);
+  assert.equal(response.body.projectRouterFactory, factory);
+  assert.equal(response.body.chainId, 4663);
 });
 
 test("public port falls back to the Railway-compatible port", () => {

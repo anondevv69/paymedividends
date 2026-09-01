@@ -16,7 +16,8 @@ test("serves the application and injects its API endpoint", async () => {
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("cache-control"), "no-store");
   assert.match(body, /https:\/\/api\.example\.test/);
-  assert.match(body, /Bankr funding path/);
+  assert.match(body, /Create Project Router/);
+  assert.match(body, /Paste this into Bankr as fee recipient/);
 });
 
 test("has an independent healthcheck", async () => {

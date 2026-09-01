@@ -42,12 +42,18 @@ export function createServer({ env = process.env, now = () => new Date().toISOSt
     }
 
     if (pathname === "/v1/platform") {
+      const factory = config.projectRouterFactory;
+      const hub = config.universalRewardsHub;
+      const deployed = Boolean(factory && hub);
       json(response, 200, {
-        phase: "setup",
+        phase: deployed ? "contracts_live" : "setup",
         livePayoutsEnabled: false,
         platformFeeBps: config.platformFeeBps,
         targetChain: config.chain,
-        projectRouterFactory: config.projectRouterFactory,
+        chainId: 4663,
+        rpcUrl: env.ROBINHOOD_MAINNET_RPC_URL ?? env.ROBINHOOD_RPC_URL ?? "https://rpc.mainnet.chain.robinhood.com",
+        projectRouterFactory: factory,
+        universalRewardsHub: hub,
         storage: {
           databaseConfigured: config.databaseConfigured,
           queueConfigured: config.queueConfigured,
@@ -57,7 +63,7 @@ export function createServer({ env = process.env, now = () => new Date().toISOSt
           mode: "hourly",
           workerPollIntervalMs: config.workerPollIntervalMs,
         },
-        safety: "No private keys, launch-provider credentials, or live transaction execution are configured.",
+        safety: "No private keys, launch-provider credentials, or live keeper execution are configured on the API.",
       });
       return;
     }
@@ -67,11 +73,12 @@ export function createServer({ env = process.env, now = () => new Date().toISOSt
       json(response, 200, {
         phase: deployed ? "awaiting_indexer" : "not_deployed",
         universalRewardsHub: config.universalRewardsHub,
+        projectRouterFactory: config.projectRouterFactory,
         verifiedContributorCount: 0,
         contributors: [],
         verification: deployed
-          ? "Member records will appear only after the indexed Bankr fee recipient matches an enrolled Project Router."
-          : "No UniversalRewardsHub is deployed, so there are no verified member tokens to show.",
+          ? "Create a Project Router, point Bankr fees to it, then wait for Safe enrollment. Verified members appear here after indexing."
+          : "No UniversalRewardsHub is configured on the API yet.",
       });
       return;
     }
