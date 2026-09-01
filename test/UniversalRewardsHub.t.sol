@@ -400,7 +400,7 @@ contract UniversalRewardsHubTest is TestV2 {
         assertEq(hub.pendingRewards(address(spy)), pendingBefore + 95e18);
     }
 
-    function test_snapshot_signer_must_remain_a_2_of_3_committee() public {
+    function test_snapshot_signer_must_be_a_safe_contract() public {
         vm.prank(GOVERNANCE);
         vm.expectRevert(UniversalRewardsHub.InvalidSnapshotCommittee.selector);
         hub.setSnapshotSigner(address(0xBEEF));

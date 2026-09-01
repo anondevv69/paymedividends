@@ -5,8 +5,8 @@ uses an isolated Project Router for its fee stream; approved quote/RWA assets ca
 Hub, which reserves multi-asset Merkle claim rounds for all verified member-token holders.
 
 > The v2 contracts are implemented but remain **pre-mainnet**. They require a production archive RPC,
-> a real 2-of-3 Robinhood Safe, an executed Bankr/Doppler fork test, fuzz/invariant coverage, and an
-> independent external audit before deployment. The archived v1 contracts remain in the repository
+> a Robinhood Safe (1-of-1 is allowed for v1), an executed Bankr/Doppler fork test, fuzz/invariant coverage, and an
+> independent external audit before putting real reward TVL behind live keepers. The archived v1 contracts remain in the repository
 > only for reference and are not part of the universal deployment.
 
 ## v2 tokenless shared-Hub target
@@ -34,7 +34,7 @@ Bankr/Doppler fee stream (meme token + quote/RWA)
   must EIP-712-sign that community's root/manifest commitment. Anyone may submit a valid signed
   batch. Roots remain under a 24-hour public review where the same admin can veto; vetoed digests
   are permanently blacklisted so prior signatures cannot be replayed. Round creation itself is
-  limited to the governance Safe or a separate 2-of-3 snapshot-committee Safe.
+  limited to the governance Safe or the configured snapshot-operator Safe (may be the same 1-of-1 Safe in v1).
 - Round membership is frozen by onchain membership windows, so later enrollments or removals cannot
   alter an already-started round. Claim deadlines are capped at 90 days.
 - Only routers created by the canonical factory can enroll. Every pool identity is recorded by the
@@ -114,8 +114,8 @@ The local v2 suite verifies the core economic boundaries before an audited deplo
 - a fixed swap adapter can convert a meme fee balance into the Hub settlement asset (SPY in the
   intended mainnet configuration).
 
-Create a Robinhood Safe only after setting three distinct owner addresses. This script enforces a
-2-of-3 threshold and verifies Safe's canonical v1.5.0 Robinhood contracts before broadcasting:
+Create a Robinhood Safe before deploying. A single 1-of-1 Safe is accepted for v1; stronger
+multi-sig remains recommended for production TVL:
 
 ```bash
 set -a && source .env.deploy && set +a
@@ -124,11 +124,10 @@ forge script script/CreateRobinhoodGovernanceSafe.s.sol:CreateRobinhoodGovernanc
 ```
 
 The Hub deployment script accepts only chain ID `4663`, hardcodes canonical Robinhood `$SPY` as the
-settlement asset, and rejects governance, ops, and `SNAPSHOT_SIGNER` unless each is a canonical Safe
-v1.5.0 proxy with **exactly** three owners and threshold **exactly** two. `SNAPSHOT_SIGNER` is the
-round-operator committee Safe and must never be the deployer key. Community root attestations are
-signed by each router's `projectAdmin`, not by that committee. Do not use `--broadcast` until the
-external audit has signed off on the final commit.
+settlement asset, and rejects governance/ops/`SNAPSHOT_SIGNER` unless each is a Safe proxy with a
+known Robinhood singleton and at least one owner. A single Safe address may fill all three roles.
+Community root attestations are signed by each router's `projectAdmin`, not by that Safe. Do not put
+real reward TVL behind a live keeper until an external audit has signed off.
 
 ## Archived v1 contract model
 
