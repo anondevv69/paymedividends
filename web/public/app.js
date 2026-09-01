@@ -31,10 +31,13 @@ const programChoices = [...document.querySelectorAll('input[name="programType"]'
 const walletButton = document.querySelector("#wallet-button");
 const output = document.querySelector("#blueprint-output");
 const createButton = document.querySelector("#create-router-button");
-const bankrLaunchFields = document.querySelector("#bankr-launch-fields");
+const bankrLaunchFields = document.querySelector("#new-token-fields");
+const bankrAdvancedFields = document.querySelector("#bankr-advanced-fields");
+const postLaunchFields = document.querySelector("#post-launch-fields");
 const existingTokenFields = document.querySelector("#existing-token-fields");
 const bankrVerifyFields = document.querySelector("#bankr-verify-fields");
 const simulateCheckbox = document.querySelector("#simulate-launch");
+const useBankrApiCheckbox = document.querySelector("#use-bankr-api");
 
 function selectLabel(input) {
   const group = [...document.querySelectorAll(`input[name="${input.name}"]`)];
@@ -69,8 +72,17 @@ function setWizardStep(step, label) {
 
 function displayPath() {
   return state.programType === "newBankr"
-    ? "Launch with shared rewards"
-    : "Existing token → shared Hub";
+    ? "Launching a new token"
+    : "Existing token → fee sink";
+}
+
+function usesIntegratedBankrLaunch() {
+  return state.programType === "newBankr" && (useBankrApiCheckbox?.checked ?? false);
+}
+
+function tokenAddressForFlow() {
+  if (state.programType === "existingBankr") return value("existing-token-address");
+  return value("post-launch-token-address") || value("existing-token-address");
 }
 
 function pad32(hex) {
@@ -95,22 +107,39 @@ function normalizePoolId(poolId) {
   return `0x${hex}`;
 }
 
+function showBankrHandoff(router) {
+  document.querySelector("#bankr-handoff")?.classList.remove("hidden");
+  postLaunchFields?.classList.remove("hidden");
+  bankrVerifyFields?.classList.remove("hidden");
+  output.textContent =
+    `Router ${router} is ready. Launch on Bankr and paste this address as the fee recipient. ` +
+    "Then paste your token address below to verify.";
+  setWizardStep("launch", "Launch on Bankr");
+}
+
 function refreshPreview() {
-  const token = value("token-symbol") || value("token-name") || value("existing-token-address").slice(0, 6) || "TOKEN";
+  const token = value("token-symbol") || value("token-name") || tokenAddressForFlow().slice(0, 6) || "TOKEN";
   document.querySelector("#blueprint-token").textContent = `$${token.toUpperCase()} community`;
   document.querySelector("#detail-program").textContent = displayPath();
   if (!state.lastRouter) {
     document.querySelector("#blueprint-vault").textContent =
-      state.programType === "newBankr" ? "Router + Bankr launch" : "Router for existing token";
+      state.programType === "newBankr" ? "Fee router" : "Router for existing token";
   }
 
   const isNew = state.programType === "newBankr";
   bankrLaunchFields?.classList.toggle("hidden", !isNew);
+  bankrAdvancedFields?.classList.toggle("hidden", !isNew || !usesIntegratedBankrLaunch());
   existingTokenFields?.classList.toggle("hidden", isNew);
-  bankrVerifyFields?.classList.toggle("hidden", isNew && !state.lastLaunch);
-  createButton.textContent = isNew
-    ? "Launch with shared holder rewards →"
-    : "Create router + verify token →";
+  postLaunchFields?.classList.toggle("hidden", !isNew || !state.lastRouter);
+  bankrVerifyFields?.classList.toggle("hidden", isNew && !state.lastRouter && !state.lastLaunch);
+
+  if (isNew) {
+    createButton.textContent = usesIntegratedBankrLaunch()
+      ? "Create router + launch on Bankr →"
+      : "Create fee router →";
+  } else {
+    createButton.textContent = "Join the fee sink →";
+  }
 }
 
 async function connectWallet() {
@@ -438,9 +467,41 @@ async function runNewLaunchFlow(event) {
     return;
   }
 
+  if (usesIntegratedBankrLaunch()) {
+    await runIntegratedBankrLaunch();
+    return;
+  }
+
+  await runNewRouterOnlyFlow();
+}
+
+async function runNewRouterOnlyFlow() {
+  state.busy = true;
+  createButton.disabled = true;
+  setWizardStep("wallet", "Connect wallet");
+
+  try {
+    const account = state.connectedAccount ?? await connectWallet();
+    if (!account) return;
+    await ensureRobinhoodChain();
+    const router = await createRouterOnchain(account);
+    showBankrHandoff(router);
+  } catch (error) {
+    setWizardStep("error", "Needs attention");
+    output.textContent = error?.message
+      ? `Could not create router: ${error.message}`
+      : "Could not create router. The wallet may have rejected the request.";
+  } finally {
+    state.busy = false;
+    createButton.disabled = false;
+    refreshPreview();
+  }
+}
+
+async function runIntegratedBankrLaunch() {
   const apiKey = value("bankr-api-key");
   if (!apiKey.startsWith("bk_")) {
-    output.textContent = "Paste your Bankr user API key (starts with bk_). It never leaves this browser.";
+    output.textContent = "Advanced launch needs a Bankr user API key (starts with bk_).";
     return;
   }
 
@@ -479,6 +540,35 @@ async function runNewLaunchFlow(event) {
   } finally {
     state.busy = false;
     createButton.disabled = false;
+  }
+}
+
+async function verifyPostLaunchToken(event) {
+  event.preventDefault();
+  if (!state.lastRouter) {
+    output.textContent = "Create a fee router first.";
+    return;
+  }
+
+  const tokenAddress = tokenAddressForFlow();
+  if (!isAddress(tokenAddress)) {
+    output.textContent = "Paste your Bankr token contract address (0x…).";
+    return;
+  }
+
+  try {
+    await connectWallet();
+    await ensureRobinhoodChain();
+    const lookup = await lookupBankrToken(tokenAddress);
+    await verifyFeeRecipient({
+      poolId: lookup.poolId,
+      router: state.lastRouter,
+      feeRecipientAddress: lookup.feeRecipientAddress,
+      simulated: false,
+      tokenSymbol: lookup.tokenSymbol,
+    });
+  } catch (error) {
+    output.textContent = error?.message ? `Verification failed: ${error.message}` : "Verification failed.";
   }
 }
 
@@ -530,7 +620,7 @@ async function runExistingFlow(event) {
 
 async function lookupExistingToken(event) {
   event.preventDefault();
-  const tokenAddress = value("existing-token-address");
+  const tokenAddress = tokenAddressForFlow();
   if (!isAddress(tokenAddress)) {
     output.textContent = "Paste a valid token address (0x…).";
     return;
@@ -541,7 +631,7 @@ async function lookupExistingToken(event) {
     const lookup = await lookupBankrToken(tokenAddress);
     bankrVerifyFields?.classList.remove("hidden");
     output.textContent =
-      `Found ${lookup.tokenSymbol} on Bankr. Current fee recipient: ${shortAddress(lookup.feeRecipientAddress)}.`;
+      `Found ${lookup.tokenSymbol}. Current fee recipient: ${shortAddress(lookup.feeRecipientAddress)}.`;
 
     if (state.lastRouter) {
       await connectWallet();
@@ -568,12 +658,12 @@ async function verifyExistingFees(event) {
 
   try {
     let lookup = state.bankrLookup;
-    const tokenAddress = value("existing-token-address");
+    const tokenAddress = tokenAddressForFlow();
     if (tokenAddress && isAddress(tokenAddress)) {
       lookup = await lookupBankrToken(tokenAddress);
     }
     if (!lookup?.poolId) {
-      output.textContent = "Look up a Bankr token address first.";
+      output.textContent = "Paste a Bankr token address first.";
       return;
     }
 
@@ -738,8 +828,10 @@ document.querySelector("#copy-router")?.addEventListener("click", async () => {
   await navigator.clipboard.writeText(state.lastRouter);
   output.textContent = `Copied ${state.lastRouter}.`;
 });
+useBankrApiCheckbox?.addEventListener("change", refreshPreview);
 document.querySelector("#lookup-token-button")?.addEventListener("click", lookupExistingToken);
 document.querySelector("#verify-fees-button")?.addEventListener("click", verifyExistingFees);
+document.querySelector("#verify-post-launch-button")?.addEventListener("click", verifyPostLaunchToken);
 
 refreshPreview();
 setWizardStep("ready", "Ready");

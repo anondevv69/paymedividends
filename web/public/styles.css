@@ -102,6 +102,10 @@ select { appearance:none; background-image:linear-gradient(45deg, transparent 50
 .verify-button { width:100%; justify-content:space-between; margin-top:12px; cursor:pointer; }
 .readonly-output { display:block; width:100%; margin-top:7px; padding:12px 11px; color:#c8d6c1; border:1px solid rgba(230,241,218,.18); background:#0e170d; font:500 11px/1.45 var(--mono); overflow-wrap:anywhere; min-height:44px; }
 input[readonly] { color:#9fb196; border-color:rgba(230,241,218,.14); cursor:default; }
+.bankr-handoff { margin-top:18px; padding:16px; border:1px solid rgba(212,255,55,.35); background:#0d150c; display:flex; flex-direction:column; gap:12px; }
+.compact-steps li { grid-template-columns:28px 1fr; }
+.compact-steps span { font-size:14px; }
+.step-list a { color:var(--lime); text-decoration:underline; }
 .single-line { grid-template-columns:1fr 1fr; }
 .single-line .choice { min-height:64px; }
 .fee-preview { display:grid; grid-template-columns:1fr auto; gap:8px; color:#b8c5b1; font:500 11px var(--mono); }

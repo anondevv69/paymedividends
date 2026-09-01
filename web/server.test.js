@@ -16,11 +16,10 @@ test("serves the application and injects its API endpoint", async () => {
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("cache-control"), "no-store");
   assert.match(body, /https:\/\/api\.example\.test/);
-  assert.match(body, /Launch with shared holder rewards/);
-  assert.match(body, /Existing token → shared Hub/);
-  assert.match(body, /Token contract address/);
-  assert.match(body, /Resolved pool ID/);
-  assert.match(body, /Look up token on Bankr/);
+  assert.match(body, /Create fee router/);
+  assert.match(body, /I already have a token/);
+  assert.match(body, /I’m launching a new token/);
+  assert.match(body, /Open Bankr/);
 });
 
 test("has an independent healthcheck", async () => {
