@@ -780,7 +780,8 @@ contract UniversalRewardsHub {
     function _requireSnapshotCommittee(address candidate) private view {
         if (candidate == address(0) || candidate.code.length == 0) revert InvalidSnapshotCommittee();
         address[] memory owners = ISafeCommittee(candidate).getOwners();
-        if (owners.length != 3 || ISafeCommittee(candidate).getThreshold() != 2) {
+        uint256 threshold = ISafeCommittee(candidate).getThreshold();
+        if (owners.length == 0 || threshold == 0 || threshold > owners.length) {
             revert InvalidSnapshotCommittee();
         }
     }

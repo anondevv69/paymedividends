@@ -25,7 +25,8 @@ contract DeployUniversalV2 {
 
     uint256 internal constant ROBINHOOD_CHAIN_ID = 4663;
     address internal constant ROBINHOOD_SPY = 0x117cc2133c37B721F49dE2A7a74833232B3B4C0C;
-    address internal constant SAFE_L2_SINGLETON = 0xEdd160fEBBD92E350D4D398fb636302fccd67C7e;
+    address internal constant SAFE_L2_SINGLETON_V150 = 0xEdd160fEBBD92E350D4D398fb636302fccd67C7e;
+    address internal constant SAFE_L2_SINGLETON_V141 = 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762;
 
     error WrongChain();
     error InvalidSafe();
@@ -52,20 +53,22 @@ contract DeployUniversalV2 {
         vm.stopBroadcast();
     }
 
+    /// @dev Accepts a Robinhood Safe with at least one owner. v1 may use a single 1-of-1 Safe for
+    ///      governance, ops, and round operator.
     function _validateSafe(address candidate) private view {
         if (candidate.code.length == 0) revert InvalidSafe();
         try ISafeLike(candidate).masterCopy() returns (address singleton) {
-            if (singleton != SAFE_L2_SINGLETON) revert InvalidSafe();
+            if (singleton != SAFE_L2_SINGLETON_V150 && singleton != SAFE_L2_SINGLETON_V141) revert InvalidSafe();
         } catch {
             revert InvalidSafe();
         }
         try ISafeLike(candidate).getOwners() returns (address[] memory owners) {
-            if (owners.length != 3) revert InvalidSafe();
-        } catch {
-            revert InvalidSafe();
-        }
-        try ISafeLike(candidate).getThreshold() returns (uint256 threshold) {
-            if (threshold != 2) revert InvalidSafe();
+            if (owners.length == 0) revert InvalidSafe();
+            try ISafeLike(candidate).getThreshold() returns (uint256 threshold) {
+                if (threshold == 0 || threshold > owners.length) revert InvalidSafe();
+            } catch {
+                revert InvalidSafe();
+            }
         } catch {
             revert InvalidSafe();
         }
