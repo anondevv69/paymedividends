@@ -8,9 +8,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,500;6..72,600;6..72,700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=launch-wizard-7" />
+    <link rel="stylesheet" href="/styles.css?v=launch-wizard-8" />
     <script>window.PAYMENTS_API_URL = __PUBLIC_API_URL__;</script>
-    <script type="module" src="/app.js?v=launch-wizard-7"></script>
+    <script type="module" src="/app.js?v=launch-wizard-8"></script>
   </head>
   <body>
     <div class="grain" aria-hidden="true"></div>
@@ -131,9 +131,11 @@
             </fieldset>
 
             <fieldset id="existing-token-fields" class="hidden">
-              <legend>2. Your existing token</legend>
-              <label>Token contract address<input id="existing-token-address" name="existingTokenAddress" placeholder="0x…" spellcheck="false" autocomplete="off" /></label>
-              <p class="field-note">We look up the pool and current fee recipient from Bankr. You’ll create a router and point fees to it if they aren’t already.</p>
+              <legend>2. Join with your token</legend>
+              <p class="field-note field-note-prominent">Connect the wallet that is the Bankr fee beneficiary. Only that wallet can retarget fees to a holder router.</p>
+              <div class="bankr-pair-readout hidden" id="eligible-beneficiary-readout"></div>
+              <label>Token contract address<input id="existing-token-address" name="existingTokenAddress" placeholder="0x… or pick from your tokens below" spellcheck="false" autocomplete="off" /></label>
+              <p class="field-note" id="beneficiary-tokens-status">Connect wallet to list tokens where you are the fee beneficiary.</p>
               <div class="bankr-pair-readout hidden" id="token-lookup-readout"></div>
               <div class="router-actions">
                 <button class="button button-quiet" id="lookup-token-button" type="button">Look up token</button>
