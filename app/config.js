@@ -15,10 +15,10 @@ export function platformConfig(env = process.env) {
     databaseConfigured: Boolean(env.DATABASE_URL),
     queueConfigured: Boolean(env.REDIS_URL),
     manifestDir: env.MANIFEST_DIR ?? null,
-    workerPollIntervalMs: Math.max(Number.parseInt(env.WORKER_POLL_INTERVAL_MS ?? "1800000", 10), 30_000),
-    rewardRoundIntervalMs: Math.max(
-      Number.parseInt(env.REWARD_ROUND_INTERVAL_MS ?? String(60 * 60 * 1000), 10),
-      30_000,
+    // Fixed hourly cadence for fee/index/snapshot work. No separate round interval.
+    workerPollIntervalMs: Math.max(
+      Number.parseInt(env.WORKER_POLL_INTERVAL_MS ?? String(60 * 60 * 1000), 10),
+      60 * 60 * 1000,
     ),
   });
 }

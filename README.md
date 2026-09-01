@@ -71,10 +71,9 @@ creates the token:
 5. Governance schedules enrollment; anyone can activate it after the seven-day admission delay.
 6. Anyone can collect the pool's creator fees through the router. For the production launch path,
    Bankr `quoteOnlyFees: true` avoids a creator-token fee leg.
-7. Every 30 minutes the platform tunnel can collect fees and index holders of every enrolled member
-   token (each Project Router that is a Bankr fee recipient) at one finalized block. Reward rounds
-   should publish on an hourly/daily cadence at ~100-token scale. Each community admin signs its
-   public root/manifest commitment; veto remains available during the 24-hour review.
+7. Hourly, the platform tunnel indexes holders of every enrolled member token at one finalized
+   block and prepares public manifests/roots. Each community admin signs its public root/manifest
+   commitment; veto remains available during the 24-hour review.
 
 The onchain integration is Doppler-compatible; the router stores the paired asset, fee manager, and
 pool ID. Robinhood launches require the creator's own Bankr user API key; Bankr partner-key launches
@@ -173,18 +172,17 @@ npm start
 # http://localhost:3000/v1/platform
 ```
 
-The worker now runs the dry-run snapshot pipeline on the default 30-minute cadence:
+The worker now runs the dry-run snapshot pipeline on a fixed hourly cadence:
 
 ```bash
 npm run start:worker
 ```
 
-`WORKER_POLL_INTERVAL_MS` defaults to `1800000` (30 minutes) for fee/index progress.
-`REWARD_ROUND_INTERVAL_MS` defaults to one hour so ~100-token membership does not publish a full
-Merkle batch every poll. Manifests are content-addressed under `pmd://<hash>` (optionally mirrored
-to `MANIFEST_DIR`). `EXECUTION_MODE=disabled` remains the only accepted mode: the worker can build
-roots and store manifests, but it cannot sign community approvals, submit transactions, collect
-fees, or move payout funds until a separately audited keeper is enabled.
+`WORKER_POLL_INTERVAL_MS` defaults to `3600000` (1 hour) and is floored at one hour — fee/index/
+snapshot work share that single cadence. Manifests are content-addressed under `pmd://<hash>`
+(optionally mirrored to `MANIFEST_DIR`). `EXECUTION_MODE=disabled` remains the only accepted mode:
+the worker can build roots and store manifests, but it cannot sign community approvals, submit
+transactions, collect fees, or move payout funds until a separately audited keeper is enabled.
 
 The API uses Railway's assigned `PORT` and an optional `PUBLIC_PORT` (default `3000`). This makes the
 healthcheck and service domain work even if an existing Railway domain was previously pinned to 3000.

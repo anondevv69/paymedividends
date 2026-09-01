@@ -96,7 +96,7 @@ test("worker dry-run publishes manifests without sending transactions", async ()
 
   const logs = [];
   const status = await runWorkerTick({
-    now: Date.now() + 3_600_000,
+    now: Date.now(),
     memberTokens: [token],
     snapshotBlock: 10,
     allocationPerCommunity: 95n,
@@ -104,6 +104,7 @@ test("worker dry-run publishes manifests without sending transactions", async ()
   });
 
   assert.equal(status.executionMode, "disabled");
+  assert.equal(status.cadence, "hourly");
   assert.equal(status.roundPublication, "manifests_ready");
   assert.equal(status.published.length, 1);
   assert.equal(status.feeCollection, "skipped_until_execution_enabled");
