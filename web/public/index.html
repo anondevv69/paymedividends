@@ -74,8 +74,8 @@
           <div class="section-kicker">02 / What gets deployed</div>
           <div class="section-heading"><h2>Small contracts.<br /><em>Hard boundaries.</em></h2></div>
           <div class="contract-list">
-            <div class="contract-row"><span class="contract-index">01</span><div><h3>UniversalRewardsHub</h3><p>Tokenless connector for approved RWA rewards, enrolled member tokens, transparent infrastructure funding, and multi-asset Merkle claim rounds.</p></div><span class="contract-state">V2 deploy first</span></div>
-            <div class="contract-row"><span class="contract-index">02</span><div><h3>ProjectRouterFactory</h3><p>Creates a low-cost isolated Project Router for every Bankr token that enrolls. Each router handles its own dual-asset fee stream.</p></div><span class="contract-state">V2 deploy second</span></div>
+            <div class="contract-row"><span class="contract-index">01</span><div><h3>ProjectRouterFactory</h3><p>Creates a low-cost isolated Project Router for every Bankr token that enrolls. Each router handles its own dual-asset fee stream.</p></div><span class="contract-state">V2 deploy first</span></div>
+            <div class="contract-row"><span class="contract-index">02</span><div><h3>UniversalRewardsHub</h3><p>Tokenless connector bound to the official factory, verified Bankr pools, delayed membership, transparent infrastructure funding, and multi-asset Merkle claim rounds.</p></div><span class="contract-state">V2 deploy second</span></div>
             <div class="contract-row"><span class="contract-index">03</span><div><h3>ProjectRouter</h3><p>Receives Bankr/Doppler fees, forwards approved RWA assets to the Hub, and applies its immutable meme-token policy.</p></div><span class="contract-state">Factory clone</span></div>
             <div class="contract-row"><span class="contract-index">04</span><div><h3>Venue swap adapter</h3><p>Optional advanced treatment for creator-token fees: a fixed, audited route with TWAP/slippage limits. It never exposes arbitrary router calls.</p></div><span class="contract-state">After fork test</span></div>
           </div>
@@ -122,18 +122,15 @@
             </fieldset>
             <fieldset class="bankr-only">
               <legend>4. Revenue destination</legend>
-              <div class="choice-grid choice-grid-three">
-                <label class="choice"><input type="radio" name="route" value="direct" /><span><b>Independent payout</b><small>100% to this token’s holders</small></span></label>
-                <label class="choice selected"><input type="radio" name="route" value="split" checked /><span><b>Hybrid membership</b><small>95% local · 5% shared index</small></span></label>
-                <label class="choice"><input type="radio" name="route" value="universal" /><span><b>Universal member</b><small>100% to the shared RWA index</small></span></label>
+              <div class="choice-grid single-line">
+                <label class="choice selected"><input type="radio" name="route" value="universal" checked /><span><b>Universal member</b><small>Verified Bankr paired-token fees enter the shared RWA index</small></span></label>
               </div>
-              <p class="field-note">This is a routing decision, not the Hub’s operating fee. The chosen split is fixed in that token’s Project Router; the Hub applies its transparent infrastructure policy only to RWA funds it receives.</p>
+              <p class="field-note">Production v2 routes approved paired/RWA fees to the shared Hub. Independent and hybrid local-vault splits are not offered until separate contracts implement them.</p>
             </fieldset>
             <fieldset class="bankr-only holder-allocation">
               <legend>5. Holder allocation</legend>
               <div class="choice-grid single-line">
-                <label class="choice selected"><input type="radio" name="allocation" value="Pro-rata" checked /><span><b>Pro-rata</b><small>Based on snapshot balance</small></span></label>
-                <label class="choice"><input type="radio" name="allocation" value="Equal" /><span><b>Equal share</b><small>One share per eligible wallet</small></span></label>
+                <label class="choice selected"><input type="radio" name="allocation" value="Pro-rata" checked /><span><b>Pro-rata</b><small>Public block snapshot, community-signed manifest, and 24-hour veto window</small></span></label>
               </div>
             </fieldset>
             <fieldset class="universal-only hidden">
@@ -150,7 +147,7 @@
             </fieldset>
             <fieldset>
               <legend>6. Routing summary</legend>
-              <div class="fee-preview"><span>Local-holder allocation</span><strong id="holder-allocation-bps">95.00%</strong><span>Shared-Hub allocation</span><strong id="universal-allocation-bps">05.00%</strong></div>
+              <div class="fee-preview"><span>Shared community rewards</span><strong>95.00%</strong><span>Infrastructure treasury</span><strong>05.00%</strong></div>
             </fieldset>
             <button class="button button-primary build-button" type="submit">Create test blueprint <span>→</span></button>
             <p class="form-safety">No wallet action occurs from this form.</p>
@@ -158,11 +155,11 @@
 
           <aside class="blueprint" aria-live="polite">
             <div class="builder-head"><span>Blueprint</span><strong id="blueprint-state">Waiting</strong></div>
-            <div class="blueprint-visual"><div class="node node-token" id="blueprint-token">$TEST</div><span id="blueprint-source">Bankr feeRecipient</span><div class="node node-vault" id="blueprint-vault">Prelaunch payout vault</div><span id="blueprint-arrow">5% protocol · 95% holders</span><div class="node node-asset" id="blueprint-asset">WETH claims</div></div>
+            <div class="blueprint-visual"><div class="node node-token" id="blueprint-token">$TEST member</div><span id="blueprint-source">Bankr feeRecipient</span><div class="node node-vault" id="blueprint-vault">Prelaunch project router</div><span id="blueprint-arrow">95% shared rewards · 5% infrastructure</span><div class="node node-asset" id="blueprint-asset">RWA shared claims</div></div>
             <dl class="blueprint-details">
               <div><dt>Network</dt><dd id="detail-network">Robinhood Chain</dd></div>
               <div><dt>Funding path</dt><dd id="detail-program">New Bankr token</dd></div>
-              <div><dt>Entitlement</dt><dd id="detail-entitlement">TEST holders</dd></div>
+              <div><dt>Entitlement</dt><dd id="detail-entitlement">All enrolled member-token holders</dd></div>
               <div><dt>Contract status</dt><dd class="pending" id="detail-contract">Not deployed</dd></div>
             </dl>
             <div class="blueprint-output" id="blueprint-output">Choose whether to launch a Bankr member token, associate an existing one, or join the shared index. When v2 contracts are deployed, this screen will generate the exact router transaction and Bankr fee-recipient instructions.</div>
@@ -174,7 +171,7 @@
         <div class="dashboard-top"><div><div class="section-kicker">Example / after deployment</div><h2>Project dashboard</h2></div><span class="demo-tag">Demo data</span></div>
         <div class="dashboard-grid">
           <article class="dashboard-card main-card"><div class="card-label">TEST / $NVDA program</div><strong>0.0000 <small>$NVDA</small></strong><p>Reserved for holders in the next payout round.</p><div class="progress"><span style="width: 0%"></span></div><div class="card-foot"><span>Minimum round: 1.00 $NVDA</span><span>Next check: not scheduled</span></div></article>
-          <article class="dashboard-card"><div class="card-label">Last round</div><strong>—</strong><p>No holder snapshot has been signed.</p></article>
+          <article class="dashboard-card"><div class="card-label">Last round</div><strong>—</strong><p>No public holder manifest has been signed by the snapshot operator.</p></article>
           <article class="dashboard-card"><div class="card-label">Claims paid</div><strong>0</strong><p>Funds remain untouched until an audited deployment.</p></article>
         </div>
       </section>

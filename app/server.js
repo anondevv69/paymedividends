@@ -51,6 +51,11 @@ export function createServer({ env = process.env, now = () => new Date().toISOSt
         storage: {
           databaseConfigured: config.databaseConfigured,
           queueConfigured: config.queueConfigured,
+          manifestDirConfigured: Boolean(config.manifestDir),
+        },
+        cadence: {
+          workerPollIntervalMs: config.workerPollIntervalMs,
+          rewardRoundIntervalMs: config.rewardRoundIntervalMs,
         },
         safety: "No private keys, launch-provider credentials, or live transaction execution are configured.",
       });

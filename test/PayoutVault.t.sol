@@ -96,12 +96,18 @@ contract MockDopplerFeeManager is IDopplerFeeManager {
         token1 = token1_;
     }
 
+    function getShares(bytes32, address) external pure returns (uint256) {
+        return 1e18;
+    }
+
     function collectFees(bytes32) external returns (uint256 amount0, uint256 amount1) {
         amount0 = token0.balanceOf(address(this));
         amount1 = token1.balanceOf(address(this));
         if (amount0 != 0) token0.transfer(msg.sender, amount0);
         if (amount1 != 0) token1.transfer(msg.sender, amount1);
     }
+
+    function updateBeneficiary(bytes32, address) external {}
 }
 
 contract PayoutVaultTest is Test {
@@ -136,6 +142,22 @@ contract PayoutVaultTest is Test {
         assertEq(vault.platformTreasury(), PLATFORM_TREASURY);
         assertEq(vault.platformFeeBps(), 500);
         assertEq(vault.payoutAsset(), address(nvda));
+    }
+
+    function test_legacy_implementation_cannot_be_initialized() public {
+        PayoutVault implementation = PayoutVault(factory.implementation());
+        vm.expectRevert(PayoutVault.AlreadyInitialized.selector);
+        implementation.initialize(
+            CREATOR,
+            KEEPER,
+            address(testToken),
+            address(testToken),
+            address(nvda),
+            address(adapter),
+            PLATFORM_TREASURY,
+            500,
+            1e18
+        );
     }
 
     function test_swap_then_settle_takes_five_percent_in_payout_asset() public {

@@ -11,22 +11,63 @@ interface VmDeploy {
     function stopBroadcast() external;
 }
 
+interface ISafeLike {
+    function getOwners() external view returns (address[] memory);
+    function getThreshold() external view returns (uint256);
+    function masterCopy() external view returns (address);
+}
+
 /// @notice Foundry deployment entrypoint for the v2 tokenless Hub and Project Router Factory.
 /// @dev Run this on Robinhood Chain testnet first. It deploys no swap adapter and enrolls no member
 ///      router; those actions require a separately verified Bankr/Doppler pool after deployment.
 contract DeployUniversalV2 {
     VmDeploy internal constant vm = VmDeploy(address(uint160(uint256(keccak256("hevm cheat code")))));
 
+    uint256 internal constant ROBINHOOD_CHAIN_ID = 4663;
+    address internal constant ROBINHOOD_SPY = 0x117cc2133c37B721F49dE2A7a74833232B3B4C0C;
+    address internal constant SAFE_L2_SINGLETON = 0xEdd160fEBBD92E350D4D398fb636302fccd67C7e;
+
+    error WrongChain();
+    error InvalidSafe();
+    error InvalidSettlementAsset();
+
     function run() external returns (UniversalRewardsHub hub, ProjectRouterFactory routerFactory) {
+        if (block.chainid != ROBINHOOD_CHAIN_ID) revert WrongChain();
         address governanceSafe = vm.envAddress("GOVERNANCE_SAFE");
         address opsSafe = vm.envAddress("OPS_SAFE");
-        address settlementAsset = vm.envAddress("SETTLEMENT_ASSET");
+        address snapshotCommitteeSafe = vm.envAddress("SNAPSHOT_SIGNER");
         uint256 feeBps = vm.envUint("HUB_FEE_BPS");
         uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
 
+        _validateSafe(governanceSafe);
+        _validateSafe(opsSafe);
+        _validateSafe(snapshotCommitteeSafe);
+        if (ROBINHOOD_SPY.code.length == 0) revert InvalidSettlementAsset();
+
         vm.startBroadcast(deployerPrivateKey);
-        hub = new UniversalRewardsHub(governanceSafe, opsSafe, settlementAsset, feeBps);
         routerFactory = new ProjectRouterFactory();
+        hub = new UniversalRewardsHub(
+            governanceSafe, opsSafe, snapshotCommitteeSafe, ROBINHOOD_SPY, address(routerFactory), feeBps
+        );
         vm.stopBroadcast();
+    }
+
+    function _validateSafe(address candidate) private view {
+        if (candidate.code.length == 0) revert InvalidSafe();
+        try ISafeLike(candidate).masterCopy() returns (address singleton) {
+            if (singleton != SAFE_L2_SINGLETON) revert InvalidSafe();
+        } catch {
+            revert InvalidSafe();
+        }
+        try ISafeLike(candidate).getOwners() returns (address[] memory owners) {
+            if (owners.length != 3) revert InvalidSafe();
+        } catch {
+            revert InvalidSafe();
+        }
+        try ISafeLike(candidate).getThreshold() returns (uint256 threshold) {
+            if (threshold != 2) revert InvalidSafe();
+        } catch {
+            revert InvalidSafe();
+        }
     }
 }
