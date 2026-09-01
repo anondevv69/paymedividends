@@ -9,7 +9,6 @@ const DEFAULTS = {
 
 const BANKR_DEPLOY_API = "https://api.bankr.bot/token-launches/deploy";
 const BANKR_LAUNCH_API = "https://api.bankr.bot/token-launches";
-const ROBINSCAN_STOCKS_API = "https://robinscan.io/api/stocks";
 const ROBINHOOD_FEE_MANAGER = "0x4e3468951D49f2EEa976eD0D6e75fFCb44a9a544";
 const MIN_FEE_SHARE = 950000000000000000n; // 0.95e18
 const GET_SHARES_SELECTOR = "0x5ebb58fb";
@@ -688,25 +687,12 @@ async function loadPairedStocks() {
   if (!datalist) return;
 
   try {
-    const stocks = [];
-    let page = 1;
-    while (true) {
-      const response = await fetch(`${ROBINSCAN_STOCKS_API}?page=${page}`, {
-        signal: AbortSignal.timeout(15000),
-      });
-      if (!response.ok) throw new Error("Robinscan unavailable");
-      const data = await response.json();
-      stocks.push(...(data.items ?? []));
-      if (stocks.length >= (data.total ?? stocks.length) || !(data.items?.length)) break;
-      page += 1;
-    }
-
-    stocks.sort((left, right) => {
-      if (left.isOfficialStock !== right.isOfficialStock) {
-        return Number(right.isOfficialStock) - Number(left.isOfficialStock);
-      }
-      return left.symbol.localeCompare(right.symbol);
+    const response = await fetch(`${window.PAYMENTS_API_URL}/v1/robinhood/stocks`, {
+      signal: AbortSignal.timeout(20000),
     });
+    if (!response.ok) throw new Error("Stock registry unavailable");
+    const data = await response.json();
+    const stocks = data.items ?? [];
 
     state.pairedStocks = stocks;
     state.pairedStockByLabel.clear();
@@ -728,7 +714,8 @@ async function loadPairedStocks() {
     }
   } catch {
     if (status) {
-      status.textContent = "Could not load the full stock list. You can still launch without a stock pair.";
+      status.textContent =
+        "Could not load the stock list from the API proxy. You can still launch without a stock pair.";
     }
   }
 }

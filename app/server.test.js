@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { once } from "node:events";
 import { publicPortFrom } from "./config.js";
-import { createServer } from "./server.js";
+import { createServer, fetchRobinhoodStocks } from "./server.js";
 
 async function request(server, path) {
   const address = server.address();
@@ -74,4 +74,52 @@ test("public port falls back to the Railway-compatible port", () => {
   assert.equal(publicPortFrom({}), 3000);
   assert.equal(publicPortFrom({ PUBLIC_PORT: "8081" }), 8081);
   assert.equal(publicPortFrom({ PUBLIC_PORT: "invalid" }), 3000);
+});
+
+test("fetchRobinhoodStocks aggregates paginated Robinscan results", async () => {
+  const fetchImpl = async (url) => {
+    const page = new URL(url).searchParams.get("page");
+    if (page === "1") {
+      return {
+        ok: true,
+        async json() {
+          return {
+            total: 2,
+            items: [
+              { symbol: "ZZZ", name: "Late", address: "0x2", isOfficialStock: false },
+              { symbol: "AAPL", name: "Apple", address: "0x1", isOfficialStock: true },
+            ],
+          };
+        },
+      };
+    }
+    return { ok: true, async json() { return { total: 2, items: [] }; } };
+  };
+
+  const payload = await fetchRobinhoodStocks(fetchImpl);
+  assert.equal(payload.total, 2);
+  assert.equal(payload.items[0].symbol, "AAPL");
+  assert.equal(payload.items[1].symbol, "ZZZ");
+});
+
+test("robinhood stocks endpoint proxies registry data", async (t) => {
+  const fetchImpl = async () => ({
+    ok: true,
+    async json() {
+      return {
+        total: 1,
+        items: [{ symbol: "NVDA", name: "NVIDIA", address: "0xabc", isOfficialStock: true }],
+      };
+    },
+  });
+
+  const server = createServer({ env: { EXECUTION_MODE: "disabled" }, fetchImpl });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => server.close());
+
+  const response = await request(server, "/v1/robinhood/stocks");
+  assert.equal(response.status, 200);
+  assert.equal(response.body.total, 1);
+  assert.equal(response.body.items[0].symbol, "NVDA");
 });
