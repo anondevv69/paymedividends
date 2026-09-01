@@ -9,6 +9,7 @@ const DEFAULTS = {
 
 const BANKR_DEPLOY_API = "https://api.bankr.bot/token-launches/deploy";
 const BANKR_LAUNCH_API = "https://api.bankr.bot/token-launches";
+const BANKR_BUILD_TRANSFER = "https://api.bankr.bot/public/doppler/build-transfer-beneficiary";
 const ROBINHOOD_FEE_MANAGER = "0x4e3468951D49f2EEa976eD0D6e75fFCb44a9a544";
 const MIN_FEE_SHARE = 950000000000000000n; // 0.95e18
 const GET_SHARES_SELECTOR = "0x5ebb58fb";
@@ -23,6 +24,8 @@ const state = {
   eligibleBeneficiaryTokens: [],
   pairedStocks: [],
   pairedStockByLabel: new Map(),
+  feesVerified: false,
+  enrollmentSubmitted: false,
   busy: false,
   wizardStep: "ready",
 };
@@ -34,12 +37,11 @@ const output = document.querySelector("#blueprint-output");
 const createButton = document.querySelector("#create-router-button");
 const bankrLaunchFields = document.querySelector("#new-token-fields");
 const bankrIntegratedFields = document.querySelector("#bankr-integrated-fields");
-const bankrHandoffFields = document.querySelector("#bankr-handoff-fields");
-const postLaunchFields = document.querySelector("#post-launch-fields");
 const existingTokenFields = document.querySelector("#existing-token-fields");
 const bankrVerifyFields = document.querySelector("#bankr-verify-fields");
 const simulateCheckbox = document.querySelector("#simulate-launch");
-const manualBankrHandoffCheckbox = document.querySelector("#manual-bankr-handoff");
+const retargetFeesButton = document.querySelector("#retarget-fees-button");
+const requestEnrollmentButton = document.querySelector("#request-enrollment-button");
 
 function selectLabel(input) {
   const group = [...document.querySelectorAll(`input[name="${input.name}"]`)];
@@ -78,17 +80,9 @@ function displayPath() {
     : "Existing token → fee sink";
 }
 
-function usesIntegratedBankrLaunch() {
-  return state.programType === "newBankr" && !(manualBankrHandoffCheckbox?.checked ?? false);
-}
-
-function usesManualBankrHandoff() {
-  return state.programType === "newBankr" && (manualBankrHandoffCheckbox?.checked ?? false);
-}
-
 function tokenAddressForFlow() {
   if (state.programType === "existingBankr") return value("existing-token-address");
-  return value("post-launch-token-address") || value("existing-token-address");
+  return state.lastLaunch?.tokenAddress ?? value("existing-token-address");
 }
 
 function pad32(hex) {
@@ -113,14 +107,14 @@ function normalizePoolId(poolId) {
   return `0x${hex}`;
 }
 
-function showBankrHandoff(router) {
-  document.querySelector("#bankr-handoff")?.classList.remove("hidden");
-  postLaunchFields?.classList.remove("hidden");
-  bankrVerifyFields?.classList.remove("hidden");
-  output.textContent =
-    `Router ${router} is ready. Launch on Bankr with this as fee recipient — trading fees route to holders pro-rata, not your wallet. ` +
-    "Then paste your token address below to verify.";
-  setWizardStep("launch", "Launch on Bankr");
+function refreshVerificationActions({ verified, recipientMatches } = {}) {
+  const needsRetarget = state.programType === "existingBankr"
+    && state.lastRouter
+    && state.bankrLookup
+    && !verified
+    && recipientMatches === false;
+  retargetFeesButton?.classList.toggle("hidden", !needsRetarget);
+  requestEnrollmentButton?.classList.toggle("hidden", !verified || state.enrollmentSubmitted);
 }
 
 function refreshPreview() {
@@ -133,21 +127,18 @@ function refreshPreview() {
   }
 
   const isNew = state.programType === "newBankr";
-  const integrated = usesIntegratedBankrLaunch();
   bankrLaunchFields?.classList.toggle("hidden", !isNew);
-  bankrIntegratedFields?.classList.toggle("hidden", !integrated);
-  bankrHandoffFields?.classList.toggle("hidden", !isNew || integrated);
+  bankrIntegratedFields?.classList.remove("hidden");
   existingTokenFields?.classList.toggle("hidden", isNew);
-  postLaunchFields?.classList.toggle("hidden", !isNew || integrated || !state.lastRouter);
-  bankrVerifyFields?.classList.toggle("hidden", isNew && integrated && !state.lastLaunch && !state.lastRouter);
+  bankrVerifyFields?.classList.toggle("hidden", isNew && !state.lastLaunch && !state.lastRouter);
 
   if (isNew) {
-    createButton.textContent = integrated
-      ? "Create router + launch on Bankr →"
-      : "Create fee router →";
+    createButton.textContent = "Create router + launch on Bankr →";
   } else {
     createButton.textContent = "Join the fee sink →";
   }
+
+  refreshVerificationActions({ verified: state.feesVerified });
 }
 
 function isFeeRecipientWallet(feeRecipientAddress, account) {
@@ -522,17 +513,19 @@ function renderVerification({ shares, router, feeRecipientAddress, simulated, to
   if (simulated) {
     lines.push("This was a simulation only. Run a live launch to deploy the token.");
   } else if (verified) {
-    lines.push("Next: governance binds this pool and enrolls the router in the shared Hub.");
+    lines.push("Next: request Hub enrollment — governance Safe reviews and enrolls the router.");
   } else if (state.programType === "existingBankr") {
-    lines.push("Use Bankr or Doppler updateBeneficiary to send fees to your new router.");
+    lines.push("Click Retarget fees to router — your wallet signs updateBeneficiary via Bankr.");
   } else {
     lines.push("Check Bankr fee recipient settings, then verify again.");
   }
 
   setReadout("fee-verify-readout", lines, verified ? "verify-pass" : "verify-fail");
   setWizardStep(verified ? "verified" : "verify", verified ? "Fees verified" : "Verify fees");
+  state.feesVerified = verified;
+  refreshVerificationActions({ verified, recipientMatches });
   output.textContent = verified
-    ? "Holder router verified — fees will split pro-rata to token holders."
+    ? "Holder router verified — request Hub enrollment to join the shared RWA pool."
     : "Token found, but fees are not routed to the holder sink yet.";
 }
 
@@ -554,34 +547,140 @@ async function runNewLaunchFlow(event) {
     return;
   }
 
-  if (usesIntegratedBankrLaunch()) {
-    await runIntegratedBankrLaunch();
+  await runIntegratedBankrLaunch();
+}
+
+async function retargetFeesToRouter(event) {
+  event.preventDefault();
+  if (state.busy) return;
+  if (!state.lastRouter || !state.bankrLookup?.tokenAddress) {
+    output.textContent = "Create a router and look up your token first.";
     return;
   }
 
-  await runNewRouterOnlyFlow();
-}
-
-async function runNewRouterOnlyFlow() {
   state.busy = true;
-  createButton.disabled = true;
-  setWizardStep("wallet", "Connect wallet");
+  retargetFeesButton.disabled = true;
+  setWizardStep("verify", "Retargeting fees");
 
   try {
     const account = state.connectedAccount ?? await connectWallet();
     if (!account) return;
     await ensureRobinhoodChain();
-    const router = await createRouterOnchain(account);
-    showBankrHandoff(router);
+    assertFeeRecipientAuthority(state.bankrLookup.feeRecipientAddress, account);
+
+    output.textContent = "Building updateBeneficiary transaction via Bankr…";
+    const response = await fetch(BANKR_BUILD_TRANSFER, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tokenAddress: state.bankrLookup.tokenAddress,
+        currentBeneficiary: account,
+        newBeneficiary: state.lastRouter,
+      }),
+      signal: AbortSignal.timeout(20000),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(bankrErrorMessage(payload, response.status));
+    }
+
+    output.textContent = "Confirm the fee retarget in your wallet…";
+    const txHash = await window.ethereum.request({
+      method: "eth_sendTransaction",
+      params: [{
+        from: account,
+        to: payload.to,
+        data: payload.data,
+      }],
+    });
+
+    output.textContent = `Retarget tx ${shortAddress(txHash)}. Waiting for confirmation…`;
+    const receipt = await waitForReceipt(txHash);
+    if (Number.parseInt(receipt.status, 16) !== 1) {
+      throw new Error("Fee retarget transaction failed onchain.");
+    }
+
+    const lookup = await lookupBankrToken(state.bankrLookup.tokenAddress);
+    await verifyFeeRecipient({
+      poolId: lookup.poolId,
+      router: state.lastRouter,
+      feeRecipientAddress: lookup.feeRecipientAddress,
+      simulated: false,
+      tokenSymbol: lookup.tokenSymbol,
+    });
   } catch (error) {
     setWizardStep("error", "Needs attention");
     output.textContent = error?.message
-      ? `Could not create router: ${error.message}`
-      : "Could not create router. The wallet may have rejected the request.";
+      ? `Could not retarget fees: ${error.message}`
+      : "Could not retarget fees. The wallet may have rejected the request.";
   } finally {
     state.busy = false;
-    createButton.disabled = false;
+    retargetFeesButton.disabled = false;
     refreshPreview();
+  }
+}
+
+async function submitEnrollmentRequest(event) {
+  event.preventDefault();
+  if (state.busy || !state.feesVerified || !state.lastRouter) {
+    output.textContent = "Verify fees onchain before requesting Hub enrollment.";
+    return;
+  }
+
+  const lookup = state.bankrLookup ?? state.lastLaunch;
+  const tokenAddress = lookup?.tokenAddress ?? tokenAddressForFlow();
+  const poolId = lookup?.poolId;
+  if (!isAddress(tokenAddress) || !poolId) {
+    output.textContent = "Token and pool must be resolved before enrollment.";
+    return;
+  }
+
+  state.busy = true;
+  requestEnrollmentButton.disabled = true;
+  const statusEl = document.querySelector("#enrollment-status");
+
+  try {
+    const account = state.connectedAccount ?? await connectWallet();
+    if (!account) return;
+
+    const body = {
+      tokenAddress,
+      router: state.lastRouter,
+      poolId,
+      feeBeneficiary: account,
+      tokenSymbol: lookup?.tokenSymbol ?? null,
+      pairedStockSymbol: lookup?.pairedStockSymbol ?? null,
+      requestedBy: account,
+    };
+
+    const response = await fetch(`${window.PAYMENTS_API_URL}/v1/enrollment-requests`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(15000),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.message ?? payload.error ?? `Enrollment request failed (${response.status})`);
+    }
+
+    state.enrollmentSubmitted = true;
+    if (statusEl) {
+      statusEl.classList.remove("hidden");
+      statusEl.textContent =
+        "Enrollment queued for governance Safe review (7-day onchain delay after enrollMemberRouter). "
+        + "Holder claims go live after enrollment + indexer rounds.";
+    }
+    output.textContent =
+      `Enrollment request ${payload.id ?? "submitted"}. Governance will verify pool binding and enroll the router.`;
+    refreshVerificationActions({ verified: true });
+  } catch (error) {
+    output.textContent = error?.message
+      ? `Enrollment request failed: ${error.message}`
+      : "Enrollment request failed.";
+  } finally {
+    state.busy = false;
+    requestEnrollmentButton.disabled = false;
   }
 }
 
@@ -606,6 +705,13 @@ async function runIntegratedBankrLaunch() {
     const launch = await launchOnBankr(router, apiKey, simulateOnly);
 
     if (!simulateOnly) {
+      applyBankrLookup({
+        tokenAddress: launch.tokenAddress,
+        tokenName: value("token-name"),
+        tokenSymbol: value("token-symbol"),
+        poolId: launch.poolId,
+        feeRecipientAddress: router,
+      });
       await verifyFeeRecipient({
         poolId: launch.poolId,
         router,
@@ -627,38 +733,6 @@ async function runIntegratedBankrLaunch() {
   } finally {
     state.busy = false;
     createButton.disabled = false;
-  }
-}
-
-async function verifyPostLaunchToken(event) {
-  event.preventDefault();
-  if (!state.lastRouter) {
-    output.textContent = "Create a fee router first.";
-    return;
-  }
-
-  const tokenAddress = tokenAddressForFlow();
-  if (!isAddress(tokenAddress)) {
-    output.textContent = "Paste your Bankr token contract address (0x…).";
-    return;
-  }
-
-  try {
-    await connectWallet();
-    await ensureRobinhoodChain();
-    const lookup = await lookupBankrToken(tokenAddress);
-    if (state.connectedAccount) {
-      assertFeeRecipientAuthority(lookup.feeRecipientAddress, state.connectedAccount);
-    }
-    await verifyFeeRecipient({
-      poolId: lookup.poolId,
-      router: state.lastRouter,
-      feeRecipientAddress: lookup.feeRecipientAddress,
-      simulated: false,
-      tokenSymbol: lookup.tokenSymbol,
-    });
-  } catch (error) {
-    output.textContent = error?.message ? `Verification failed: ${error.message}` : "Verification failed.";
   }
 }
 
@@ -930,10 +1004,10 @@ document.querySelector("#copy-router")?.addEventListener("click", async () => {
   await navigator.clipboard.writeText(state.lastRouter);
   output.textContent = `Copied ${state.lastRouter}.`;
 });
-manualBankrHandoffCheckbox?.addEventListener("change", refreshPreview);
 document.querySelector("#lookup-token-button")?.addEventListener("click", lookupExistingToken);
 document.querySelector("#verify-fees-button")?.addEventListener("click", verifyExistingFees);
-document.querySelector("#verify-post-launch-button")?.addEventListener("click", verifyPostLaunchToken);
+retargetFeesButton?.addEventListener("click", retargetFeesToRouter);
+requestEnrollmentButton?.addEventListener("click", submitEnrollmentRequest);
 
 refreshPreview();
 applyDeepLinkToken();

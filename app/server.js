@@ -1,6 +1,11 @@
 import http from "node:http";
 import { pathToFileURL } from "node:url";
 import { platformConfig, portFrom, publicPortFrom } from "./config.js";
+import {
+  appendEnrollmentRequest,
+  listEnrollmentRequests,
+  validateEnrollmentRequest,
+} from "./enrollment.js";
 
 function json(response, status, body, { cacheControl = "no-store" } = {}) {
   response.writeHead(status, {
@@ -151,6 +156,19 @@ function serveBankrBeneficiaryFees(response, walletAddress, fetchImpl) {
     });
 }
 
+async function readJsonBody(request, { maxBytes = 65536 } = {}) {
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of request) {
+    size += chunk.length;
+    if (size > maxBytes) throw new Error("request_body_too_large");
+    chunks.push(chunk);
+  }
+  const body = Buffer.concat(chunks).toString("utf8").trim();
+  if (!body) return {};
+  return JSON.parse(body);
+}
+
 function serveBankrPairedStocks(response, fetchImpl) {
   fetchBankrPairedStocks(fetchImpl)
     .then((payload) => {
@@ -169,13 +187,53 @@ export function createServer({
   now = () => new Date().toISOString(),
   fetchImpl = fetch,
 } = {}) {
-  return http.createServer((request, response) => {
+  return http.createServer(async (request, response) => {
     if (request.method === "OPTIONS") {
       response.writeHead(204, {
         "access-control-allow-origin": "*",
-        "access-control-allow-methods": "GET, OPTIONS",
+        "access-control-allow-methods": "GET, POST, OPTIONS",
+        "access-control-allow-headers": "content-type",
       });
       response.end();
+      return;
+    }
+
+    const { pathname } = new URL(request.url, "http://localhost");
+    const config = platformConfig(env);
+
+    if (request.method === "POST" && pathname === "/v1/enrollment-requests") {
+      if (!config.manifestDir) {
+        json(response, 503, {
+          error: "enrollment_queue_unavailable",
+          message: "Enrollment queue is not configured on this API (MANIFEST_DIR missing).",
+        });
+        return;
+      }
+
+      try {
+        const body = await readJsonBody(request);
+        const fields = validateEnrollmentRequest(body);
+        const record = {
+          ...fields,
+          requestedBy: String(body?.requestedBy ?? fields.feeBeneficiary).toLowerCase(),
+          requestedAt: now(),
+          id: `${fields.tokenAddress}-${Date.now()}`,
+        };
+        await appendEnrollmentRequest(config.manifestDir, record);
+        json(response, 201, {
+          status: "queued",
+          id: record.id,
+          message: "Enrollment request queued for governance Safe review.",
+        });
+      } catch (error) {
+        if (error instanceof SyntaxError) {
+          json(response, 400, { error: "invalid_json" });
+          return;
+        }
+        const message = error?.message ?? "invalid_request";
+        const status = message.startsWith("invalid_") ? 400 : 500;
+        json(response, status, { error: message });
+      }
       return;
     }
 
@@ -183,9 +241,6 @@ export function createServer({
       json(response, 405, { error: "method_not_allowed" });
       return;
     }
-
-    const { pathname } = new URL(request.url, "http://localhost");
-    const config = platformConfig(env);
 
     if (pathname === "/" || pathname === "/health") {
       json(response, 200, {
@@ -248,6 +303,21 @@ export function createServer({
     const beneficiaryMatch = pathname.match(/^\/v1\/bankr\/beneficiary-fees\/(0x[a-fA-F0-9]{40})$/);
     if (beneficiaryMatch) {
       serveBankrBeneficiaryFees(response, beneficiaryMatch[1], fetchImpl);
+      return;
+    }
+
+    if (pathname === "/v1/enrollment-requests") {
+      listEnrollmentRequests(config.manifestDir)
+        .then((items) => {
+          json(response, 200, {
+            total: items.length,
+            items,
+            note: "Pending governance review. Safe calls enrollMemberRouter after verification.",
+          });
+        })
+        .catch((error) => {
+          json(response, 500, { error: "enrollment_list_failed", message: error?.message });
+        });
       return;
     }
 
