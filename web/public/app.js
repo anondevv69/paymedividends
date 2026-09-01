@@ -32,12 +32,13 @@ const walletButton = document.querySelector("#wallet-button");
 const output = document.querySelector("#blueprint-output");
 const createButton = document.querySelector("#create-router-button");
 const bankrLaunchFields = document.querySelector("#new-token-fields");
-const bankrAdvancedFields = document.querySelector("#bankr-advanced-fields");
+const bankrIntegratedFields = document.querySelector("#bankr-integrated-fields");
+const bankrHandoffFields = document.querySelector("#bankr-handoff-fields");
 const postLaunchFields = document.querySelector("#post-launch-fields");
 const existingTokenFields = document.querySelector("#existing-token-fields");
 const bankrVerifyFields = document.querySelector("#bankr-verify-fields");
 const simulateCheckbox = document.querySelector("#simulate-launch");
-const useBankrApiCheckbox = document.querySelector("#use-bankr-api");
+const manualBankrHandoffCheckbox = document.querySelector("#manual-bankr-handoff");
 
 function selectLabel(input) {
   const group = [...document.querySelectorAll(`input[name="${input.name}"]`)];
@@ -77,7 +78,11 @@ function displayPath() {
 }
 
 function usesIntegratedBankrLaunch() {
-  return state.programType === "newBankr" && (useBankrApiCheckbox?.checked ?? false);
+  return state.programType === "newBankr" && !(manualBankrHandoffCheckbox?.checked ?? false);
+}
+
+function usesManualBankrHandoff() {
+  return state.programType === "newBankr" && (manualBankrHandoffCheckbox?.checked ?? false);
 }
 
 function tokenAddressForFlow() {
@@ -112,7 +117,7 @@ function showBankrHandoff(router) {
   postLaunchFields?.classList.remove("hidden");
   bankrVerifyFields?.classList.remove("hidden");
   output.textContent =
-    `Router ${router} is ready. Launch on Bankr and paste this address as the fee recipient. ` +
+    `Router ${router} is ready. Launch on Bankr with this as fee recipient — trading fees route to holders pro-rata, not your wallet. ` +
     "Then paste your token address below to verify.";
   setWizardStep("launch", "Launch on Bankr");
 }
@@ -127,14 +132,16 @@ function refreshPreview() {
   }
 
   const isNew = state.programType === "newBankr";
+  const integrated = usesIntegratedBankrLaunch();
   bankrLaunchFields?.classList.toggle("hidden", !isNew);
-  bankrAdvancedFields?.classList.toggle("hidden", !isNew || !usesIntegratedBankrLaunch());
+  bankrIntegratedFields?.classList.toggle("hidden", !integrated);
+  bankrHandoffFields?.classList.toggle("hidden", !isNew || integrated);
   existingTokenFields?.classList.toggle("hidden", isNew);
-  postLaunchFields?.classList.toggle("hidden", !isNew || !state.lastRouter);
-  bankrVerifyFields?.classList.toggle("hidden", isNew && !state.lastRouter && !state.lastLaunch);
+  postLaunchFields?.classList.toggle("hidden", !isNew || integrated || !state.lastRouter);
+  bankrVerifyFields?.classList.toggle("hidden", isNew && integrated && !state.lastLaunch && !state.lastRouter);
 
   if (isNew) {
-    createButton.textContent = usesIntegratedBankrLaunch()
+    createButton.textContent = integrated
       ? "Create router + launch on Bankr →"
       : "Create fee router →";
   } else {
@@ -206,7 +213,7 @@ function showRouter(router, txHash) {
   addressEl.textContent = router;
   explorer.href = `${state.platform.explorer}/address/${router}`;
   document.querySelector("#blueprint-vault").textContent = shortAddress(router);
-  document.querySelector("#blueprint-source").textContent = "Bankr fee recipient";
+  document.querySelector("#blueprint-source").textContent = "Holder pro-rata sink";
   if (txHash) {
     output.textContent =
       `Router ready at ${router}. Tx ${shortAddress(txHash)}. Your wallet is the router admin.`;
@@ -417,8 +424,8 @@ function renderVerification({ shares, router, feeRecipientAddress, simulated, to
 
   const lines = [
     verified
-      ? "Verified — this router receives at least 95% of pool fees."
-      : "Not verified yet — fees are not pointed at this router.",
+      ? "Verified — fees route to the holder sink. Holders can claim pro-rata once enrolled."
+      : "Not verified yet — fees are not pointed at the holder router.",
     `Onchain fee share: ${sharePct.toFixed(2)}%`,
   ];
 
@@ -427,8 +434,8 @@ function renderVerification({ shares, router, feeRecipientAddress, simulated, to
   if (feeRecipientAddress) {
     lines.push(
       recipientMatches
-        ? "Bankr fee recipient matches this router."
-        : `Bankr fee recipient is still ${shortAddress(feeRecipientAddress)}. Point fees to your router, then verify again.`,
+        ? "Bankr fee recipient is the holder router."
+        : `Fees still go to ${shortAddress(feeRecipientAddress)} — retarget to your holder router.`,
     );
   }
 
@@ -445,8 +452,8 @@ function renderVerification({ shares, router, feeRecipientAddress, simulated, to
   setReadout("fee-verify-readout", lines, verified ? "verify-pass" : "verify-fail");
   setWizardStep(verified ? "verified" : "verify", verified ? "Fees verified" : "Verify fees");
   output.textContent = verified
-    ? "Fee recipient verified onchain."
-    : "Token found, but onchain fee share is below 95% for this router.";
+    ? "Holder router verified — fees will split pro-rata to token holders."
+    : "Token found, but fees are not routed to the holder sink yet.";
 }
 
 async function verifyFeeRecipient({ poolId, router, feeRecipientAddress, simulated, tokenSymbol }) {
@@ -501,7 +508,7 @@ async function runNewRouterOnlyFlow() {
 async function runIntegratedBankrLaunch() {
   const apiKey = value("bankr-api-key");
   if (!apiKey.startsWith("bk_")) {
-    output.textContent = "Advanced launch needs a Bankr user API key (starts with bk_).";
+    output.textContent = "Enter your Bankr user API key (starts with bk_usr_). Get one from bankr.bot account settings.";
     return;
   }
 
@@ -828,7 +835,7 @@ document.querySelector("#copy-router")?.addEventListener("click", async () => {
   await navigator.clipboard.writeText(state.lastRouter);
   output.textContent = `Copied ${state.lastRouter}.`;
 });
-useBankrApiCheckbox?.addEventListener("change", refreshPreview);
+manualBankrHandoffCheckbox?.addEventListener("change", refreshPreview);
 document.querySelector("#lookup-token-button")?.addEventListener("click", lookupExistingToken);
 document.querySelector("#verify-fees-button")?.addEventListener("click", verifyExistingFees);
 document.querySelector("#verify-post-launch-button")?.addEventListener("click", verifyPostLaunchToken);

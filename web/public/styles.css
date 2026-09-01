@@ -112,6 +112,7 @@ input[readonly] { color:#9fb196; border-color:rgba(230,241,218,.14); cursor:defa
 .fee-preview strong { color:var(--lime); font-weight:500; }
 .build-button { width:100%; justify-content:space-between; margin-top:23px; cursor:pointer; }
 .form-safety,.field-note { color:#83947d; margin:12px 0 0; font:10px/1.5 var(--mono); }
+.field-note-prominent { color:#b8c5b1; padding:10px 11px; border:1px dashed rgba(212,255,55,.35); background:#0e170d; }
 .step-list { margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:10px; }
 .step-list li { display:grid; grid-template-columns:42px 1fr; gap:10px; align-items:start; }
 .step-list span { color:var(--lime); font:500 12px var(--mono); }
