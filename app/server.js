@@ -6,6 +6,7 @@ import {
   listEnrollmentRequests,
   validateEnrollmentRequest,
 } from "./enrollment.js";
+import { buildDirectoryIndex, formatDirectoryResponse } from "./directory.js";
 
 function json(response, status, body, { cacheControl = "no-store" } = {}) {
   response.writeHead(status, {
@@ -182,6 +183,55 @@ function serveBankrPairedStocks(response, fetchImpl) {
     });
 }
 
+function serveUniversalDirectory(response, config, fetchImpl, requestUrl) {
+  const factory = config.projectRouterFactory;
+  const hub = config.universalRewardsHub;
+  const rpcUrl = config.robinhoodRpcUrl;
+
+  if (!factory || !hub) {
+    json(response, 200, {
+      phase: "not_deployed",
+      universalRewardsHub: hub,
+      projectRouterFactory: factory,
+      verifiedContributorCount: 0,
+      contributors: [],
+      items: [],
+      leaderboard: [],
+      verification: "No UniversalRewardsHub is configured on the API yet.",
+    });
+    return;
+  }
+
+  const forceRefresh = requestUrl.searchParams.get("refresh") === "1";
+
+  buildDirectoryIndex({
+    rpcUrl,
+    factory,
+    hub,
+    manifestDir: config.manifestDir,
+    fetchImpl,
+    forceRefresh,
+  })
+    .then((snapshot) => {
+      json(response, 200, formatDirectoryResponse(snapshot), {
+        cacheControl: forceRefresh ? "no-store" : "public, max-age=60",
+      });
+    })
+    .catch((error) => {
+      json(response, 502, {
+        phase: "directory_unavailable",
+        universalRewardsHub: hub,
+        projectRouterFactory: factory,
+        verifiedContributorCount: 0,
+        contributors: [],
+        items: [],
+        leaderboard: [],
+        error: "directory_index_failed",
+        message: error?.message ?? "Could not build the member directory.",
+      });
+    });
+}
+
 export function createServer({
   env = process.env,
   now = () => new Date().toISOString(),
@@ -263,7 +313,7 @@ export function createServer({
         platformFeeBps: config.platformFeeBps,
         targetChain: config.chain,
         chainId: 4663,
-        rpcUrl: env.ROBINHOOD_MAINNET_RPC_URL ?? env.ROBINHOOD_RPC_URL ?? "https://rpc.mainnet.chain.robinhood.com",
+        rpcUrl: config.robinhoodRpcUrl,
         projectRouterFactory: factory,
         universalRewardsHub: hub,
         storage: {
@@ -280,18 +330,8 @@ export function createServer({
       return;
     }
 
-    if (pathname === "/v1/universal") {
-      const deployed = config.universalRewardsHub !== null;
-      json(response, 200, {
-        phase: deployed ? "awaiting_indexer" : "not_deployed",
-        universalRewardsHub: config.universalRewardsHub,
-        projectRouterFactory: config.projectRouterFactory,
-        verifiedContributorCount: 0,
-        contributors: [],
-        verification: deployed
-          ? "Create a Project Router, point Bankr fees to it, then wait for Safe enrollment. Verified members appear here after indexing."
-          : "No UniversalRewardsHub is configured on the API yet.",
-      });
+    if (pathname === "/v1/universal" || pathname === "/v1/directory") {
+      serveUniversalDirectory(response, config, fetchImpl, new URL(request.url, "http://localhost"));
       return;
     }
 

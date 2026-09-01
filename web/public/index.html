@@ -8,9 +8,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,500;6..72,600;6..72,700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=launch-wizard-9" />
+    <link rel="stylesheet" href="/styles.css?v=directory-1" />
     <script>window.PAYMENTS_API_URL = __PUBLIC_API_URL__;</script>
-    <script type="module" src="/app.js?v=launch-wizard-9"></script>
+    <script type="module" src="/app.js?v=directory-1"></script>
   </head>
   <body>
     <div class="grain" aria-hidden="true"></div>
@@ -208,9 +208,33 @@
         <div class="dashboard-top"><div><div class="section-kicker">Shared RWA index</div><h2>Member tokens</h2></div><span class="demo-tag" id="universal-phase">Checking</span></div>
         <div class="directory-grid">
           <article class="directory-card directory-status"><span class="card-label">UniversalRewardsHub</span><strong id="universal-vault">Loading…</strong><p id="universal-verification">Checking the control plane.</p></article>
-          <article class="directory-card"><span class="card-label">Verified member tokens</span><strong id="universal-count">0</strong><p>Only tokens whose Bankr fee recipient is an enrolled Project Router appear here.</p></article>
+          <article class="directory-card"><span class="card-label">Verified member tokens</span><strong id="universal-count">0</strong><p>Hub-enrolled tokens with fees routed through a Project Router.</p></article>
+          <article class="directory-card"><span class="card-label">Routers created</span><strong id="directory-routers">0</strong><p>All Project Routers from the live factory.</p></article>
+          <article class="directory-card"><span class="card-label">Fees verified</span><strong id="directory-verified">0</strong><p>Tokens with ≥95% Doppler fee share on the holder router.</p></article>
         </div>
-        <div class="contributor-list" id="contributor-list" aria-live="polite"><div class="empty-contributors"><span>NO VERIFIED MEMBER TOKENS YET</span><p>Launch through the wizard above, then wait for Safe enrollment. Verified members show up here after indexing.</p></div></div>
+        <div class="directory-toolbar">
+          <div class="directory-filters" id="directory-filters" role="tablist" aria-label="Filter member tokens">
+            <button class="directory-filter active" type="button" data-filter="all">All</button>
+            <button class="directory-filter" type="button" data-filter="enrolled">Enrolled</button>
+            <button class="directory-filter" type="button" data-filter="pending">Pending</button>
+            <button class="directory-filter" type="button" data-filter="verified">Fees verified</button>
+            <button class="directory-filter" type="button" data-filter="router">Router only</button>
+          </div>
+          <button class="button button-quiet" id="directory-refresh" type="button">Refresh index <span>↻</span></button>
+        </div>
+        <div class="leaderboard-panel hidden" id="leaderboard-panel">
+          <div class="leaderboard-head"><span class="card-label">Market cap leaderboard</span><p id="directory-fetched-at">Indexed just now</p></div>
+          <div class="leaderboard-chart" id="leaderboard-chart"></div>
+        </div>
+        <div class="member-table-wrap">
+          <div class="member-table-head"><span class="card-label">Sink index</span><p>Factory routers, fee retarget status, Hub enrollment, pair, market cap, and holders — sourced from chain + Doppler.</p></div>
+          <div class="member-table" id="member-table" aria-live="polite">
+            <div class="member-table-row member-table-header">
+              <span>Token</span><span>Pair</span><span>Status</span><span>Market cap</span><span>Volume</span><span>Holders</span><span>Router</span>
+            </div>
+            <div class="empty-contributors" id="member-table-empty"><span>LOADING DIRECTORY</span><p>Indexing routers, Hub members, and Doppler market data…</p></div>
+          </div>
+        </div>
       </section>
     </main>
 

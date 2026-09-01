@@ -98,6 +98,8 @@ MANIFEST_DIR=/data/manifests
 
 - `POST /v1/enrollment-requests` — wizard / Bankr skill submits
 - `GET /v1/enrollment-requests` — governance reviews queue
+- `GET /v1/directory` — public sink index (routers, enrollment status, Doppler market cap / holders)
+- `GET /v1/universal` — alias for directory index
 
 ---
 

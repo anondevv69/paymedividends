@@ -15,6 +15,10 @@ export function platformConfig(env = process.env) {
     databaseConfigured: Boolean(env.DATABASE_URL),
     queueConfigured: Boolean(env.REDIS_URL),
     manifestDir: env.MANIFEST_DIR ?? null,
+    robinhoodRpcUrl:
+      env.ROBINHOOD_MAINNET_RPC_URL
+      ?? env.ROBINHOOD_RPC_URL
+      ?? "https://rpc.mainnet.chain.robinhood.com",
     // Fixed hourly cadence for fee/index/snapshot work. No separate round interval.
     workerPollIntervalMs: Math.max(
       Number.parseInt(env.WORKER_POLL_INTERVAL_MS ?? String(60 * 60 * 1000), 10),

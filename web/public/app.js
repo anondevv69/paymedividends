@@ -26,6 +26,8 @@ const state = {
   pairedStockByLabel: new Map(),
   feesVerified: false,
   enrollmentSubmitted: false,
+  directoryItems: [],
+  directoryFilter: "all",
   busy: false,
   wizardStep: "ready",
 };
@@ -885,54 +887,208 @@ async function loadPlatform() {
   }
 }
 
-function renderContributors(contributors) {
-  const list = document.querySelector("#contributor-list");
-  list.replaceChildren();
-  if (!contributors.length) {
-    const empty = document.createElement("div");
-    empty.className = "empty-contributors";
-    const title = document.createElement("span");
-    title.textContent = "NO VERIFIED MEMBER TOKENS YET";
-    const copy = document.createElement("p");
-    copy.textContent =
-      "Launch through this wizard or point Bankr fees to a router, then wait for Safe enrollment.";
-    empty.append(title, copy);
-    list.append(empty);
+function formatUsd(value) {
+  if (value == null || Number.isNaN(value)) return "—";
+  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
+  if (value >= 1_000) return `$${(value / 1_000).toFixed(1)}K`;
+  return `$${value.toFixed(2)}`;
+}
+
+function formatCount(value) {
+  if (value == null) return "—";
+  return Number(value).toLocaleString();
+}
+
+function statusLabel(status) {
+  switch (status) {
+    case "enrolled": return "Enrolled";
+    case "activation_pending":
+    case "scheduled": return "Activating";
+    case "enrollment_pending": return "Pending Safe";
+    case "fees_verified": return "Fees verified";
+    case "pool_bound": return "Pool bound";
+    default: return "Router only";
+  }
+}
+
+function directoryMatchesFilter(item, filter) {
+  switch (filter) {
+    case "enrolled": return item.status === "enrolled";
+    case "pending": return ["enrollment_pending", "activation_pending", "scheduled"].includes(item.status);
+    case "verified": return item.feesVerified;
+    case "router": return item.status === "router_created";
+    default: return true;
+  }
+}
+
+function renderLeaderboard(leaderboard) {
+  const panel = document.querySelector("#leaderboard-panel");
+  const chart = document.querySelector("#leaderboard-chart");
+  if (!panel || !chart) return;
+
+  if (!leaderboard?.length) {
+    panel.classList.add("hidden");
+    chart.replaceChildren();
     return;
   }
 
-  contributors.forEach((contributor) => {
+  panel.classList.remove("hidden");
+  chart.replaceChildren();
+  const max = Math.max(...leaderboard.map((item) => item.marketCapUsd ?? 0), 1);
+
+  leaderboard.forEach((item) => {
     const row = document.createElement("div");
-    row.className = "contributor-row";
-    const token = document.createElement("strong");
-    token.textContent = contributor.symbol ?? contributor.tokenAddress;
-    const detail = document.createElement("span");
-    detail.textContent = contributor.tokenAddress;
-    const status = document.createElement("em");
-    status.textContent = "Verified member router";
-    row.append(token, detail, status);
-    list.append(row);
+    row.className = "leaderboard-bar-row";
+
+    const label = document.createElement("span");
+    label.className = "leaderboard-bar-label";
+    label.textContent = item.symbol
+      ? `$${item.symbol}${item.pairedStockSymbol ? ` / ${item.pairedStockSymbol}` : ""}`
+      : shortAddress(item.tokenAddress);
+
+    const track = document.createElement("div");
+    track.className = "leaderboard-bar-track";
+    const fill = document.createElement("div");
+    fill.className = "leaderboard-bar-fill";
+    fill.style.width = `${Math.max(4, ((item.marketCapUsd ?? 0) / max) * 100)}%`;
+    track.append(fill);
+
+    const value = document.createElement("span");
+    value.className = "leaderboard-bar-value";
+    value.textContent = formatUsd(item.marketCapUsd);
+
+    row.append(label, track, value);
+    chart.append(row);
   });
 }
 
-async function loadUniversalDirectory() {
+function renderMemberTable(items) {
+  const table = document.querySelector("#member-table");
+  if (!table) return;
+
+  const filtered = items.filter((item) => directoryMatchesFilter(item, state.directoryFilter));
+  table.querySelectorAll(".member-table-row:not(.member-table-header)").forEach((node) => node.remove());
+  const empty = document.querySelector("#member-table-empty");
+  empty?.classList.add("hidden");
+
+  if (!filtered.length) {
+    if (empty) {
+      empty.classList.remove("hidden");
+      empty.querySelector("span").textContent = "NO MATCHING TOKENS";
+      empty.querySelector("p").textContent = "Try another filter or refresh after a new router is created.";
+    }
+    return;
+  }
+
+  filtered.forEach((item) => {
+    const row = document.createElement("div");
+    row.className = "member-table-row";
+
+    const tokenCell = document.createElement("span");
+    if (item.tokenAddress) {
+      const link = document.createElement("a");
+      link.href = item.explorerToken ?? `#`;
+      link.target = "_blank";
+      link.rel = "noreferrer";
+      link.innerHTML = `<strong>${item.symbol ?? shortAddress(item.tokenAddress)}</strong><br />${shortAddress(item.tokenAddress)}`;
+      tokenCell.append(link);
+    } else {
+      tokenCell.textContent = "Unbound router";
+    }
+
+    const pairCell = document.createElement("span");
+    pairCell.textContent = item.pairedStockSymbol ?? "—";
+
+    const statusCell = document.createElement("span");
+    const pill = document.createElement("span");
+    pill.className = `status-pill ${item.status}`;
+    pill.textContent = statusLabel(item.status);
+    statusCell.append(pill);
+
+    const mcapCell = document.createElement("span");
+    mcapCell.textContent = formatUsd(item.marketCapUsd);
+
+    const volumeCell = document.createElement("span");
+    volumeCell.textContent = formatUsd(item.volumeUsd);
+
+    const holdersCell = document.createElement("span");
+    holdersCell.textContent = formatCount(item.holderCount);
+
+    const routerCell = document.createElement("span");
+    if (item.router) {
+      const link = document.createElement("a");
+      link.href = item.explorerRouter ?? `#`;
+      link.target = "_blank";
+      link.rel = "noreferrer";
+      link.textContent = shortAddress(item.router);
+      routerCell.append(link);
+    } else {
+      routerCell.textContent = "—";
+    }
+
+    row.append(tokenCell, pairCell, statusCell, mcapCell, volumeCell, holdersCell, routerCell);
+    table.append(row);
+  });
+}
+
+function renderContributors(contributors) {
+  renderMemberTable(state.directoryItems.length ? state.directoryItems : contributors);
+}
+
+async function loadUniversalDirectory({ refresh = false } = {}) {
   const phase = document.querySelector("#universal-phase");
   const vault = document.querySelector("#universal-vault");
   const verification = document.querySelector("#universal-verification");
   const count = document.querySelector("#universal-count");
+  const routers = document.querySelector("#directory-routers");
+  const verified = document.querySelector("#directory-verified");
+  const fetchedAt = document.querySelector("#directory-fetched-at");
+  const empty = document.querySelector("#member-table-empty");
+
   try {
-    const response = await fetch(`${window.PAYMENTS_API_URL}/v1/universal`, { signal: AbortSignal.timeout(5000) });
+    const url = `${window.PAYMENTS_API_URL}/v1/directory${refresh ? "?refresh=1" : ""}`;
+    const response = await fetch(url, { signal: AbortSignal.timeout(45000) });
     if (!response.ok) throw new Error("unavailable");
     const data = await response.json();
-    phase.textContent = data.phase === "not_deployed" ? "Awaiting Hub" : "Hub live";
+
+    if (data.phase === "not_deployed") {
+      phase.textContent = "Awaiting Hub";
+      vault.textContent = data.universalRewardsHub ?? state.platform.hub;
+      verification.textContent = data.verification;
+      count.textContent = "0";
+      routers.textContent = "0";
+      verified.textContent = "0";
+      state.directoryItems = [];
+      renderMemberTable([]);
+      if (empty) empty.classList.remove("hidden");
+      return;
+    }
+
+    if (data.phase === "directory_unavailable") {
+      throw new Error(data.message ?? "Directory unavailable");
+    }
+
+    state.directoryItems = data.items ?? data.contributors ?? [];
+    phase.textContent = "Index live";
     vault.textContent = data.universalRewardsHub ?? state.platform.hub;
     verification.textContent = data.verification;
-    count.textContent = String(data.verifiedContributorCount ?? 0);
-    renderContributors(data.contributors ?? []);
+    count.textContent = String(data.totals?.hubEnrolled ?? data.verifiedContributorCount ?? 0);
+    routers.textContent = String(data.totals?.routers ?? 0);
+    verified.textContent = String(data.totals?.feesVerified ?? 0);
+    if (fetchedAt && data.fetchedAt) {
+      fetchedAt.textContent = `Indexed ${new Date(data.fetchedAt).toLocaleString()}`;
+    }
+    renderLeaderboard(data.leaderboard ?? []);
+    renderMemberTable(state.directoryItems);
   } catch {
     phase.textContent = "Directory offline";
     vault.textContent = state.platform.hub;
-    verification.textContent = "API offline. Defaults still allow launches from this page.";
+    verification.textContent = "API offline or directory index failed. Defaults still allow launches from this page.";
+    if (empty) {
+      empty.classList.remove("hidden");
+      empty.querySelector("span").textContent = "DIRECTORY OFFLINE";
+      empty.querySelector("p").textContent = "Could not load the sink index. Retry refresh in a moment.";
+    }
   }
 }
 
@@ -1008,6 +1164,17 @@ document.querySelector("#lookup-token-button")?.addEventListener("click", lookup
 document.querySelector("#verify-fees-button")?.addEventListener("click", verifyExistingFees);
 retargetFeesButton?.addEventListener("click", retargetFeesToRouter);
 requestEnrollmentButton?.addEventListener("click", submitEnrollmentRequest);
+document.querySelector("#directory-refresh")?.addEventListener("click", () => {
+  loadUniversalDirectory({ refresh: true });
+});
+document.querySelectorAll(".directory-filter").forEach((button) => {
+  button.addEventListener("click", () => {
+    document.querySelectorAll(".directory-filter").forEach((node) => node.classList.remove("active"));
+    button.classList.add("active");
+    state.directoryFilter = button.dataset.filter ?? "all";
+    renderMemberTable(state.directoryItems);
+  });
+});
 
 refreshPreview();
 applyDeepLinkToken();
