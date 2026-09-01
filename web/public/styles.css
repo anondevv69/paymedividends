@@ -100,6 +100,8 @@ select { appearance:none; background-image:linear-gradient(45deg, transparent 50
 .launch-details dt { color:#92a48c; text-transform:uppercase; }
 .launch-details dd { margin:0; color:#e7eee2; text-align:right; overflow-wrap:anywhere; max-width:220px; }
 .verify-button { width:100%; justify-content:space-between; margin-top:12px; cursor:pointer; }
+.readonly-output { display:block; width:100%; margin-top:7px; padding:12px 11px; color:#c8d6c1; border:1px solid rgba(230,241,218,.18); background:#0e170d; font:500 11px/1.45 var(--mono); overflow-wrap:anywhere; min-height:44px; }
+input[readonly] { color:#9fb196; border-color:rgba(230,241,218,.14); cursor:default; }
 .single-line { grid-template-columns:1fr 1fr; }
 .single-line .choice { min-height:64px; }
 .fee-preview { display:grid; grid-template-columns:1fr auto; gap:8px; color:#b8c5b1; font:500 11px var(--mono); }

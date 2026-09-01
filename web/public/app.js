@@ -7,16 +7,12 @@ const DEFAULTS = {
   hub: "0x6844D0814E904722777A48Ae2CF7C4b8F78a19e5",
 };
 
-const BANKR_API = "https://api.bankr.bot/token-launches/deploy";
+const BANKR_DEPLOY_API = "https://api.bankr.bot/token-launches/deploy";
+const BANKR_LAUNCH_API = "https://api.bankr.bot/token-launches";
+const ROBINSCAN_STOCKS_API = "https://robinscan.io/api/stocks";
 const ROBINHOOD_FEE_MANAGER = "0x4e3468951D49f2EEa976eD0D6e75fFCb44a9a544";
 const MIN_FEE_SHARE = 950000000000000000n; // 0.95e18
 const GET_SHARES_SELECTOR = "0x5ebb58fb";
-
-const PAIRED_STOCKS = [
-  { label: "Default pool quote (no stock pair)", value: "" },
-  { label: "MSFT — Microsoft", value: "0xe93237C50D904957Cf27E7B1133b510C669c2e74" },
-  { label: "SPY — S&P 500 ETF", value: "0x117cc2133c37B721F49dE2A7a74833232B3B4C0C" },
-];
 
 const state = {
   connectedAccount: null,
@@ -24,6 +20,9 @@ const state = {
   platform: { ...DEFAULTS },
   lastRouter: null,
   lastLaunch: null,
+  bankrLookup: null,
+  pairedStocks: [],
+  pairedStockByLabel: new Map(),
   busy: false,
   wizardStep: "ready",
 };
@@ -34,6 +33,7 @@ const walletButton = document.querySelector("#wallet-button");
 const output = document.querySelector("#blueprint-output");
 const createButton = document.querySelector("#create-router-button");
 const bankrLaunchFields = document.querySelector("#bankr-launch-fields");
+const existingTokenFields = document.querySelector("#existing-token-fields");
 const bankrVerifyFields = document.querySelector("#bankr-verify-fields");
 const simulateCheckbox = document.querySelector("#simulate-launch");
 
@@ -51,6 +51,10 @@ function value(id) {
   return document.querySelector(`#${id}`)?.value.trim() ?? "";
 }
 
+function isAddress(valueText) {
+  return /^0x[a-fA-F0-9]{40}$/.test(valueText);
+}
+
 function setWizardStep(step, label) {
   state.wizardStep = step;
   const badge = document.querySelector("#blueprint-state");
@@ -65,8 +69,9 @@ function setWizardStep(step, label) {
 }
 
 function displayPath() {
-  if (state.programType === "universal") return "Join shared RWA index";
-  return state.programType === "newBankr" ? "Launch with shared rewards" : "Retarget an existing token";
+  return state.programType === "newBankr"
+    ? "Launch with shared rewards"
+    : "Existing token → shared Hub";
 }
 
 function pad32(hex) {
@@ -78,9 +83,7 @@ function encodeCreateRouterCalldata(hub) {
 }
 
 function encodeGetSharesCalldata(poolId, beneficiary) {
-  const pool = pad32(poolId);
-  const addr = pad32(beneficiary);
-  return `${GET_SHARES_SELECTOR}${pool}${addr}`;
+  return `${GET_SHARES_SELECTOR}${pad32(poolId)}${pad32(beneficiary)}`;
 }
 
 function topicAddress(topic) {
@@ -94,17 +97,21 @@ function normalizePoolId(poolId) {
 }
 
 function refreshPreview() {
-  const token = value("token-symbol") || value("token-name") || "TEST";
+  const token = value("token-symbol") || value("token-name") || value("existing-token-address").slice(0, 6) || "TOKEN";
   document.querySelector("#blueprint-token").textContent = `$${token.toUpperCase()} community`;
   document.querySelector("#detail-program").textContent = displayPath();
   if (!state.lastRouter) {
-    document.querySelector("#blueprint-vault").textContent = "Router + Bankr launch";
+    document.querySelector("#blueprint-vault").textContent =
+      state.programType === "newBankr" ? "Router + Bankr launch" : "Router for existing token";
   }
 
   const isNew = state.programType === "newBankr";
   bankrLaunchFields?.classList.toggle("hidden", !isNew);
+  existingTokenFields?.classList.toggle("hidden", isNew);
   bankrVerifyFields?.classList.toggle("hidden", isNew && !state.lastLaunch);
-  createButton.textContent = isNew ? "Launch with shared holder rewards →" : "Create router & verify fees →";
+  createButton.textContent = isNew
+    ? "Launch with shared holder rewards →"
+    : "Create router + verify token →";
 }
 
 async function connectWallet() {
@@ -178,11 +185,48 @@ function showRouter(router, txHash) {
   }
 }
 
+function setReadout(id, lines, tone = "") {
+  const readout = document.querySelector(`#${id}`);
+  if (!readout) return;
+  readout.classList.remove("hidden", "verify-pass", "verify-fail");
+  if (tone) readout.classList.add(tone);
+  readout.innerHTML = lines.map((line) => `<p>${line}</p>`).join("");
+}
+
+function applyBankrLookup(lookup) {
+  state.bankrLookup = lookup;
+  state.lastLaunch = {
+    tokenAddress: lookup.tokenAddress,
+    poolId: lookup.poolId,
+    feeDistribution: lookup.feeRecipientAddress
+      ? { creator: { address: lookup.feeRecipientAddress } }
+      : undefined,
+  };
+
+  const poolEl = document.querySelector("#resolved-pool-id");
+  if (poolEl) poolEl.textContent = lookup.poolId ?? "—";
+
+  const lines = [
+    `${lookup.tokenSymbol} — ${lookup.tokenName}`,
+    `Pool ID: ${lookup.poolId}`,
+    `Current Bankr fee recipient: ${lookup.feeRecipientAddress ?? "unknown"}`,
+  ];
+  if (lookup.pairedStockSymbol) {
+    lines.push(`Paired stock: ${lookup.pairedStockSymbol}`);
+  }
+  setReadout("token-lookup-readout", lines);
+
+  const tokenLink = document.querySelector("#existing-token-link");
+  if (tokenLink && lookup.tokenAddress) {
+    tokenLink.href = `${state.platform.explorer}/address/${lookup.tokenAddress}`;
+    tokenLink.classList.remove("hidden");
+  }
+}
+
 function showLaunchResult(launch) {
   state.lastLaunch = launch;
   bankrVerifyFields?.classList.remove("hidden");
-  const panel = document.querySelector("#launch-result");
-  panel?.classList.remove("hidden");
+  document.querySelector("#launch-result")?.classList.remove("hidden");
 
   const set = (id, text) => {
     const el = document.querySelector(`#${id}`);
@@ -192,7 +236,7 @@ function showLaunchResult(launch) {
   set("launch-token", launch.tokenAddress);
   set("launch-pool", launch.poolId);
   set("launch-tx", launch.txHash ? shortAddress(launch.txHash) : "Simulated (no tx)");
-  set("verify-pool-id", launch.poolId ?? "");
+  set("resolved-pool-id", launch.poolId ?? "—");
 
   const tokenLink = document.querySelector("#launch-token-link");
   const txLink = document.querySelector("#launch-tx-link");
@@ -210,6 +254,35 @@ function showLaunchResult(launch) {
 function bankrErrorMessage(payload, status) {
   if (typeof payload === "string") return payload;
   return payload?.message || payload?.error || payload?.details || `Bankr request failed (${status}).`;
+}
+
+async function lookupBankrToken(tokenAddress) {
+  const normalized = tokenAddress.toLowerCase();
+  const response = await fetch(`${BANKR_LAUNCH_API}/${normalized}`, {
+    signal: AbortSignal.timeout(15000),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(bankrErrorMessage(payload, response.status));
+  }
+
+  const launch = payload.launch ?? payload;
+  if (!launch?.poolId) {
+    throw new Error("Bankr found the token but did not return a pool ID.");
+  }
+
+  const lookup = {
+    tokenAddress: launch.tokenAddress ?? tokenAddress,
+    tokenName: launch.tokenName ?? "Unknown token",
+    tokenSymbol: launch.tokenSymbol ?? shortAddress(tokenAddress),
+    poolId: launch.poolId,
+    feeRecipientAddress: launch.feeRecipient?.walletAddress ?? launch.feeRecipient?.address,
+    pairedStockSymbol: launch.pairedStock?.symbol,
+    chain: launch.chain,
+  };
+
+  applyBankrLookup(lookup);
+  return lookup;
 }
 
 async function createRouterOnchain(account) {
@@ -232,6 +305,17 @@ async function createRouterOnchain(account) {
   return router;
 }
 
+function resolvePairedStockAddress() {
+  const search = value("paired-stock-search");
+  if (!search) return "";
+  const direct = state.pairedStockByLabel.get(search);
+  if (direct) return direct;
+  const bySymbol = state.pairedStocks.find(
+    (stock) => stock.symbol.toLowerCase() === search.toLowerCase(),
+  );
+  return bySymbol?.address ?? "";
+}
+
 function buildBankrPayload(router, simulateOnly) {
   const tokenName = value("token-name");
   const tokenSymbol = value("token-symbol").toUpperCase();
@@ -247,7 +331,7 @@ function buildBankrPayload(router, simulateOnly) {
     simulateOnly,
   };
 
-  const pairedStock = value("paired-stock");
+  const pairedStock = resolvePairedStockAddress();
   if (pairedStock) payload.pairedStockAddress = pairedStock;
   return payload;
 }
@@ -258,7 +342,7 @@ async function launchOnBankr(router, apiKey, simulateOnly) {
     ? "Calling Bankr simulateOnly… your API key stays in this browser."
     : "Calling Bankr deploy… confirm this is the launch you want. Your API key stays in this browser.";
 
-  const response = await fetch(BANKR_API, {
+  const response = await fetch(BANKR_DEPLOY_API, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -288,25 +372,21 @@ async function launchOnBankr(router, apiKey, simulateOnly) {
   return launch;
 }
 
-async function readFeeShare(feeManager, poolId, beneficiary) {
+async function readFeeShare(poolId, beneficiary) {
   const data = encodeGetSharesCalldata(normalizePoolId(poolId), beneficiary);
   const raw = await window.ethereum.request({
     method: "eth_call",
-    params: [{ to: feeManager, data }, "latest"],
+    params: [{ to: ROBINHOOD_FEE_MANAGER, data }, "latest"],
   });
   if (!raw || raw === "0x") return 0n;
   return BigInt(raw);
 }
 
-function renderVerification({ shares, router, creatorAddress, simulated }) {
-  const readout = document.querySelector("#fee-verify-readout");
+function renderVerification({ shares, router, feeRecipientAddress, simulated, tokenSymbol }) {
   const verified = shares >= MIN_FEE_SHARE;
-  const creatorMatches = creatorAddress?.toLowerCase() === router.toLowerCase();
-
-  readout.classList.remove("hidden", "verify-pass", "verify-fail");
-  readout.classList.add(verified ? "verify-pass" : "verify-fail");
-
+  const recipientMatches = feeRecipientAddress?.toLowerCase() === router.toLowerCase();
   const sharePct = Number(shares) / 1e16 / 100;
+
   const lines = [
     verified
       ? "Verified — this router receives at least 95% of pool fees."
@@ -314,36 +394,40 @@ function renderVerification({ shares, router, creatorAddress, simulated }) {
     `Onchain fee share: ${sharePct.toFixed(2)}%`,
   ];
 
-  if (creatorAddress) {
+  if (tokenSymbol) lines.unshift(`${tokenSymbol} pool checked.`);
+
+  if (feeRecipientAddress) {
     lines.push(
-      creatorMatches
-        ? "Bankr creator beneficiary matches this router."
-        : `Bankr creator beneficiary is ${shortAddress(creatorAddress)}, not this router.`,
+      recipientMatches
+        ? "Bankr fee recipient matches this router."
+        : `Bankr fee recipient is still ${shortAddress(feeRecipientAddress)}. Point fees to your router, then verify again.`,
     );
   }
+
   if (simulated) {
     lines.push("This was a simulation only. Run a live launch to deploy the token.");
   } else if (verified) {
-    lines.push("Next: governance binds this pool and enrolls the router in the Hub.");
+    lines.push("Next: governance binds this pool and enrolls the router in the shared Hub.");
+  } else if (state.programType === "existingBankr") {
+    lines.push("Use Bankr or Doppler updateBeneficiary to send fees to your new router.");
   } else {
-    lines.push("Point Bankr fees to the router, then verify again.");
+    lines.push("Check Bankr fee recipient settings, then verify again.");
   }
 
-  readout.innerHTML = lines.map((line) => `<p>${line}</p>`).join("");
+  setReadout("fee-verify-readout", lines, verified ? "verify-pass" : "verify-fail");
   setWizardStep(verified ? "verified" : "verify", verified ? "Fees verified" : "Verify fees");
   output.textContent = verified
-    ? "Launch complete and fee recipient verified onchain."
-    : "Launch recorded, but onchain fee share is below 95%. Check Bankr fee recipient settings.";
+    ? "Fee recipient verified onchain."
+    : "Token found, but onchain fee share is below 95% for this router.";
 }
 
-async function verifyFeeRecipient({ poolId, router, feeDistribution, simulated }) {
+async function verifyFeeRecipient({ poolId, router, feeRecipientAddress, simulated, tokenSymbol }) {
   setWizardStep("verify", "Verifying fees");
   output.textContent = "Reading Doppler fee shares on Robinhood Chain…";
+  bankrVerifyFields?.classList.remove("hidden");
 
-  const feeManager = value("fee-manager") || ROBINHOOD_FEE_MANAGER;
-  const shares = await readFeeShare(feeManager, poolId, router);
-  const creatorAddress = feeDistribution?.creator?.address;
-  renderVerification({ shares, router, creatorAddress, simulated });
+  const shares = await readFeeShare(poolId, router);
+  renderVerification({ shares, router, feeRecipientAddress, simulated, tokenSymbol });
   return shares >= MIN_FEE_SHARE;
 }
 
@@ -378,8 +462,9 @@ async function runNewLaunchFlow(event) {
       await verifyFeeRecipient({
         poolId: launch.poolId,
         router,
-        feeDistribution: launch.feeDistribution,
+        feeRecipientAddress: launch.feeDistribution?.creator?.address,
         simulated: false,
+        tokenSymbol: value("token-symbol"),
       });
     } else {
       output.textContent =
@@ -406,6 +491,12 @@ async function runExistingFlow(event) {
     return;
   }
 
+  const tokenAddress = value("existing-token-address");
+  if (!isAddress(tokenAddress)) {
+    output.textContent = "Paste the existing Bankr token contract address (0x…).";
+    return;
+  }
+
   state.busy = true;
   createButton.disabled = true;
   setWizardStep("wallet", "Connect wallet");
@@ -415,17 +506,18 @@ async function runExistingFlow(event) {
     if (!account) return;
     await ensureRobinhoodChain();
 
-    const router = await createRouterOnchain(account);
+    output.textContent = "Looking up token on Bankr…";
+    const lookup = await lookupBankrToken(tokenAddress);
     bankrVerifyFields?.classList.remove("hidden");
 
-    const poolId = value("verify-pool-id");
-    if (poolId) {
-      await verifyFeeRecipient({ poolId, router, simulated: false });
-    } else {
-      setWizardStep("verify", "Point fees here");
-      output.textContent =
-        `Router ${router} is ready. Set it as Bankr's fee recipient, then paste the pool ID and click Verify.`;
-    }
+    const router = await createRouterOnchain(account);
+    await verifyFeeRecipient({
+      poolId: lookup.poolId,
+      router,
+      feeRecipientAddress: lookup.feeRecipientAddress,
+      simulated: false,
+      tokenSymbol: lookup.tokenSymbol,
+    });
   } catch (error) {
     setWizardStep("error", "Needs attention");
     output.textContent = error?.message
@@ -437,26 +529,63 @@ async function runExistingFlow(event) {
   }
 }
 
+async function lookupExistingToken(event) {
+  event.preventDefault();
+  const tokenAddress = value("existing-token-address");
+  if (!isAddress(tokenAddress)) {
+    output.textContent = "Paste a valid token address (0x…).";
+    return;
+  }
+
+  try {
+    output.textContent = "Looking up token on Bankr…";
+    const lookup = await lookupBankrToken(tokenAddress);
+    bankrVerifyFields?.classList.remove("hidden");
+    output.textContent =
+      `Found ${lookup.tokenSymbol} on Bankr. Current fee recipient: ${shortAddress(lookup.feeRecipientAddress)}.`;
+
+    if (state.lastRouter) {
+      await connectWallet();
+      await ensureRobinhoodChain();
+      await verifyFeeRecipient({
+        poolId: lookup.poolId,
+        router: state.lastRouter,
+        feeRecipientAddress: lookup.feeRecipientAddress,
+        simulated: false,
+        tokenSymbol: lookup.tokenSymbol,
+      });
+    }
+  } catch (error) {
+    output.textContent = error?.message ? `Lookup failed: ${error.message}` : "Lookup failed.";
+  }
+}
+
 async function verifyExistingFees(event) {
   event.preventDefault();
   if (!state.lastRouter) {
     output.textContent = "Create a router first.";
     return;
   }
-  const poolId = value("verify-pool-id");
-  if (!poolId) {
-    output.textContent = "Paste the Doppler pool ID from Bankr or the block explorer.";
-    return;
-  }
 
   try {
+    let lookup = state.bankrLookup;
+    const tokenAddress = value("existing-token-address");
+    if (tokenAddress && isAddress(tokenAddress)) {
+      lookup = await lookupBankrToken(tokenAddress);
+    }
+    if (!lookup?.poolId) {
+      output.textContent = "Look up a Bankr token address first.";
+      return;
+    }
+
     await connectWallet();
     await ensureRobinhoodChain();
     await verifyFeeRecipient({
-      poolId,
+      poolId: lookup.poolId,
       router: state.lastRouter,
-      feeDistribution: state.lastLaunch?.feeDistribution,
+      feeRecipientAddress: lookup.feeRecipientAddress,
       simulated: false,
+      tokenSymbol: lookup.tokenSymbol,
     });
   } catch (error) {
     output.textContent = error?.message ? `Verification failed: ${error.message}` : "Verification failed.";
@@ -553,15 +682,55 @@ async function loadUniversalDirectory() {
   }
 }
 
-function populatePairedStocks() {
-  const select = document.querySelector("#paired-stock");
-  if (!select || select.options.length > 1) return;
-  PAIRED_STOCKS.forEach((stock) => {
-    const option = document.createElement("option");
-    option.value = stock.value;
-    option.textContent = stock.label;
-    select.append(option);
-  });
+async function loadPairedStocks() {
+  const datalist = document.querySelector("#paired-stock-list");
+  const status = document.querySelector("#paired-stock-status");
+  if (!datalist) return;
+
+  try {
+    const stocks = [];
+    let page = 1;
+    while (true) {
+      const response = await fetch(`${ROBINSCAN_STOCKS_API}?page=${page}`, {
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!response.ok) throw new Error("Robinscan unavailable");
+      const data = await response.json();
+      stocks.push(...(data.items ?? []));
+      if (stocks.length >= (data.total ?? stocks.length) || !(data.items?.length)) break;
+      page += 1;
+    }
+
+    stocks.sort((left, right) => {
+      if (left.isOfficialStock !== right.isOfficialStock) {
+        return Number(right.isOfficialStock) - Number(left.isOfficialStock);
+      }
+      return left.symbol.localeCompare(right.symbol);
+    });
+
+    state.pairedStocks = stocks;
+    state.pairedStockByLabel.clear();
+    datalist.replaceChildren();
+
+    stocks.forEach((stock) => {
+      const label = stock.isOfficialStock
+        ? `${stock.symbol} — ${stock.name}`
+        : `${stock.symbol} — ${stock.name} (community)`;
+      state.pairedStockByLabel.set(label, stock.address);
+      const option = document.createElement("option");
+      option.value = label;
+      datalist.append(option);
+    });
+
+    if (status) {
+      status.textContent =
+        `${stocks.length} Robinhood stocks loaded. Leave blank for the default quote pool. Bankr may reject unpriceable pairs.`;
+    }
+  } catch {
+    if (status) {
+      status.textContent = "Could not load the full stock list. You can still launch without a stock pair.";
+    }
+  }
 }
 
 programChoices.forEach((input) => input.addEventListener("change", () => {
@@ -584,10 +753,11 @@ document.querySelector("#copy-router")?.addEventListener("click", async () => {
   await navigator.clipboard.writeText(state.lastRouter);
   output.textContent = `Copied ${state.lastRouter}.`;
 });
+document.querySelector("#lookup-token-button")?.addEventListener("click", lookupExistingToken);
 document.querySelector("#verify-fees-button")?.addEventListener("click", verifyExistingFees);
 
-populatePairedStocks();
 refreshPreview();
 setWizardStep("ready", "Ready");
 loadApiStatus();
 loadPlatform().then(loadUniversalDirectory);
+loadPairedStocks();

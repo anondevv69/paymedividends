@@ -17,8 +17,10 @@ test("serves the application and injects its API endpoint", async () => {
   assert.equal(response.headers.get("cache-control"), "no-store");
   assert.match(body, /https:\/\/api\.example\.test/);
   assert.match(body, /Launch with shared holder rewards/);
-  assert.match(body, /Bankr user API key/);
-  assert.match(body, /Verify onchain fee share/);
+  assert.match(body, /Existing token → shared Hub/);
+  assert.match(body, /Token contract address/);
+  assert.match(body, /Resolved pool ID/);
+  assert.match(body, /Look up token on Bankr/);
 });
 
 test("has an independent healthcheck", async () => {

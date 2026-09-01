@@ -8,9 +8,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,500;6..72,600;6..72,700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=launch-wizard-1" />
+    <link rel="stylesheet" href="/styles.css?v=launch-wizard-2" />
     <script>window.PAYMENTS_API_URL = __PUBLIC_API_URL__;</script>
-    <script type="module" src="/app.js?v=launch-wizard-1"></script>
+    <script type="module" src="/app.js?v=launch-wizard-2"></script>
   </head>
   <body>
     <div class="grain" aria-hidden="true"></div>
@@ -41,29 +41,29 @@
       </section>
 
       <section class="ticker" aria-label="Supported payout concepts">
-        <span>ROUTER + BANKR LAUNCH</span><i>✦</i><span>ONCHAIN FEE VERIFY</span><i>✦</i><span>MERKLE CLAIMS</span><i>✦</i><span>ISOLATED ROUTERS</span><i>✦</i><span>NO API KEY STORAGE</span><i>✦</i>
+        <span>ROUTER + BANKR LAUNCH</span><i>✦</i><span>TOKEN LOOKUP</span><i>✦</i><span>ONCHAIN FEE VERIFY</span><i>✦</i><span>SHARED HUB</span><i>✦</i><span>NO API KEY STORAGE</span><i>✦</i>
       </section>
 
       <section class="section-shell how" id="how-it-works">
         <div class="section-kicker">01 / The model</div>
-        <div class="section-heading split-heading"><h2>One guided<br /><em>launch.</em></h2><p>The site creates the router, calls Bankr with that address as fee recipient, and checks onchain that fees really go there.</p></div>
+        <div class="section-heading split-heading"><h2>One guided<br /><em>launch.</em></h2><p>New tokens launch in one click. Existing tokens only need a contract address — we look up the pool on Bankr and verify fees onchain.</p></div>
         <div class="path-grid">
           <article class="path-card lime-card">
             <span class="card-number">01</span>
-            <h3>Router + Bankr<br />in one click</h3>
+            <h3>New token<br />one flow</h3>
             <p>Connect wallet, paste your Bankr user API key, and submit. Router creation happens automatically.</p>
             <ol><li>Connect wallet</li><li>Paste Bankr key</li><li>Launch token</li></ol>
           </article>
           <article class="path-card dark-card">
             <span class="card-number">02</span>
-            <h3>Fees prefilled<br />to your router</h3>
-            <p>Bankr deploy uses quote-only fees and your new router as fee recipient — no manual copy/paste step.</p>
-            <ol><li>Router created</li><li>Bankr deploy</li><li>Token + pool returned</li></ol>
+            <h3>Existing token<br />paste address</h3>
+            <p>Paste your Bankr token address. We fetch the pool ID and current fee recipient from Bankr for you.</p>
+            <ol><li>Paste token</li><li>Create router</li><li>Retarget fees</li></ol>
           </article>
           <article class="path-card dark-card">
             <span class="card-number">03</span>
-            <h3>Verify + enroll<br />in the Hub</h3>
-            <p>Onchain check confirms ≥95% fee share. Governance binds the pool and enrolls the router.</p>
+            <h3>Verify + join<br />shared Hub</h3>
+            <p>Onchain check confirms ≥95% fee share. Governance binds the pool and enrolls the router in the shared RWA index.</p>
             <ol><li>getShares verify</li><li>Safe binds pool</li><li>Holders claim RWAs</li></ol>
           </article>
         </div>
@@ -83,7 +83,7 @@
 
       <section class="lab section-shell" id="test-lab">
         <div class="section-kicker">03 / Launch wizard</div>
-        <div class="section-heading split-heading"><h2>Router + Bankr<br /><em>together.</em></h2><p>For new tokens: one submit creates the router and launches on Bankr. For existing tokens: create a router, point fees, then verify.</p></div>
+        <div class="section-heading split-heading"><h2>Router + Bankr<br /><em>together.</em></h2><p>New launch: router + Bankr deploy. Existing token: paste the contract address, we look up the pool, create a router, and verify fees.</p></div>
         <div class="lab-grid">
           <form class="builder" id="program-form">
             <div class="builder-head"><span>Launch wizard</span><strong id="setup-mode">Robinhood live</strong></div>
@@ -98,23 +98,34 @@
 
             <fieldset>
               <legend>1. What are you doing?</legend>
-              <div class="choice-grid choice-grid-three">
+              <div class="choice-grid">
                 <label class="choice selected"><input type="radio" name="programType" value="newBankr" checked /><span><b>Launch a new Bankr token</b><small>Router + Bankr deploy in one flow</small></span></label>
-                <label class="choice"><input type="radio" name="programType" value="existingBankr" /><span><b>Existing Bankr token</b><small>Create router, retarget fees, verify</small></span></label>
-                <label class="choice"><input type="radio" name="programType" value="universal" /><span><b>Shared RWA index</b><small>Same router path into the Hub</small></span></label>
+                <label class="choice"><input type="radio" name="programType" value="existingBankr" /><span><b>Existing token → shared Hub</b><small>Paste token address, create router, verify fees</small></span></label>
               </div>
             </fieldset>
 
             <fieldset id="bankr-launch-fields">
-              <legend>2. Token + Bankr</legend>
+              <legend>2. New token details</legend>
               <div class="field-row">
                 <label>Token name<input id="token-name" name="tokenName" value="My Community Token" maxlength="64" autocomplete="off" required /></label>
                 <label>Token symbol<input id="token-symbol" name="tokenSymbol" value="MCT" maxlength="12" autocomplete="off" required /></label>
               </div>
-              <label>Paired stock (optional)<select id="paired-stock" name="pairedStock"></select></label>
+              <label>Paired stock (optional)<input id="paired-stock-search" list="paired-stock-list" placeholder="Search ticker, e.g. NVDA — NVIDIA" autocomplete="off" spellcheck="false" /><datalist id="paired-stock-list"></datalist></label>
+              <p class="field-note" id="paired-stock-status">Loading Robinhood stock list…</p>
               <label>Bankr user API key<input id="bankr-api-key" name="bankrApiKey" type="password" autocomplete="off" placeholder="bk_usr_…" spellcheck="false" /></label>
               <p class="field-note">Your Bankr key is sent directly to api.bankr.bot from this browser. Pay Me Dividends never stores it.</p>
               <label class="choice-inline"><input id="simulate-launch" type="checkbox" /> Dry run first (Bankr simulateOnly — no token deployed)</label>
+            </fieldset>
+
+            <fieldset id="existing-token-fields" class="hidden">
+              <legend>2. Existing Bankr token</legend>
+              <label>Token contract address<input id="existing-token-address" name="existingTokenAddress" placeholder="0x…" spellcheck="false" autocomplete="off" /></label>
+              <p class="field-note">We look up the Doppler pool ID and current fee recipient from Bankr — no manual pool ID needed.</p>
+              <div class="bankr-pair-readout hidden" id="token-lookup-readout"></div>
+              <div class="router-actions">
+                <button class="button button-quiet" id="lookup-token-button" type="button">Look up token on Bankr</button>
+                <a class="button button-quiet hidden" id="existing-token-link" href="#" target="_blank" rel="noreferrer">View token</a>
+              </div>
             </fieldset>
 
             <fieldset>
@@ -126,17 +137,17 @@
             </fieldset>
 
             <fieldset id="bankr-verify-fields" class="hidden">
-              <legend>4. Verify fee recipient</legend>
+              <legend>4. Verification</legend>
               <div class="field-row">
-                <label>Pool ID<input id="verify-pool-id" name="verifyPoolId" placeholder="0x… (32 bytes)" spellcheck="false" autocomplete="off" /></label>
-                <label>Fee manager<input id="fee-manager" name="feeManager" value="0x4e3468951D49f2EEa976eD0D6e75fFCb44a9a544" spellcheck="false" autocomplete="off" /></label>
+                <label>Resolved pool ID<output id="resolved-pool-id" class="readonly-output">—</output></label>
+                <label>Fee manager (Robinhood)<input id="fee-manager" name="feeManager" value="0x4e3468951D49f2EEa976eD0D6e75fFCb44a9a544" readonly spellcheck="false" /></label>
               </div>
               <div class="bankr-pair-readout hidden" id="fee-verify-readout"></div>
-              <button class="button button-quiet verify-button" id="verify-fees-button" type="button">Verify onchain fee share <span>↻</span></button>
+              <button class="button button-quiet verify-button" id="verify-fees-button" type="button">Re-check onchain fee share <span>↻</span></button>
             </fieldset>
 
             <button class="button button-primary build-button" id="create-router-button" type="submit">Launch with shared holder rewards <span>→</span></button>
-            <p class="form-safety">Your wallet pays gas for router creation. Bankr handles token deploy. Use simulate first if you want to test without deploying.</p>
+            <p class="form-safety">Your wallet pays gas for router creation. Bankr handles token deploy. Existing tokens: paste the contract address and we fetch the pool for you.</p>
           </form>
 
           <aside class="blueprint" aria-live="polite">
