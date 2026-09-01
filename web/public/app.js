@@ -20,6 +20,7 @@ const state = {
   lastRouter: null,
   lastLaunch: null,
   bankrLookup: null,
+  eligibleBeneficiaryTokens: [],
   pairedStocks: [],
   pairedStockByLabel: new Map(),
   busy: false,
@@ -149,6 +150,84 @@ function refreshPreview() {
   }
 }
 
+function isFeeRecipientWallet(feeRecipientAddress, account) {
+  return Boolean(
+    feeRecipientAddress && account
+    && feeRecipientAddress.toLowerCase() === account.toLowerCase(),
+  );
+}
+
+function assertFeeRecipientAuthority(feeRecipientAddress, account) {
+  if (isFeeRecipientWallet(feeRecipientAddress, account)) return;
+  throw new Error(
+    feeRecipientAddress
+      ? `Connected wallet is not the fee beneficiary (${shortAddress(feeRecipientAddress)}). Connect that wallet or use Bankr bot to join the sink.`
+      : "Could not confirm the Bankr fee beneficiary for this token.",
+  );
+}
+
+function renderEligibleBeneficiaryTokens() {
+  const status = document.querySelector("#beneficiary-tokens-status");
+  const readout = document.querySelector("#eligible-beneficiary-readout");
+  if (!status || !readout) return;
+
+  if (!state.connectedAccount) {
+    status.textContent = "Connect wallet to list tokens where you are the fee beneficiary.";
+    readout.classList.add("hidden");
+    return;
+  }
+
+  if (!state.eligibleBeneficiaryTokens.length) {
+    status.textContent = "No Robinhood stock-paired tokens found for this wallet as fee beneficiary.";
+    readout.classList.add("hidden");
+    return;
+  }
+
+  status.textContent = `${state.eligibleBeneficiaryTokens.length} eligible token(s) on Robinhood Chain — tap to select:`;
+  readout.classList.remove("hidden", "verify-pass", "verify-fail");
+  readout.innerHTML = state.eligibleBeneficiaryTokens.map((token) =>
+    `<p><button type="button" class="link-button" data-beneficiary-token="${token.tokenAddress}">`
+    + `$${token.symbol} / ${token.pairedStockSymbol}`
+    + `</button> · ${shortAddress(token.tokenAddress)}</p>`,
+  ).join("");
+}
+
+async function loadBeneficiaryTokens(account) {
+  if (!account || state.programType !== "existingBankr") return;
+  const status = document.querySelector("#beneficiary-tokens-status");
+  try {
+    if (status) status.textContent = "Loading your Bankr fee-beneficiary tokens…";
+    const response = await fetch(
+      `${window.PAYMENTS_API_URL}/v1/bankr/beneficiary-fees/${account}`,
+      { signal: AbortSignal.timeout(20000) },
+    );
+    if (!response.ok) throw new Error("Beneficiary list unavailable");
+    const data = await response.json();
+    state.eligibleBeneficiaryTokens = data.items ?? [];
+    renderEligibleBeneficiaryTokens();
+  } catch {
+    state.eligibleBeneficiaryTokens = [];
+    if (status) {
+      status.textContent = "Could not load beneficiary tokens. Paste a token address manually.";
+    }
+    renderEligibleBeneficiaryTokens();
+  }
+}
+
+function applyDeepLinkToken() {
+  const params = new URLSearchParams(window.location.hash.split("?")[1] ?? "");
+  const token = params.get("token");
+  if (!isAddress(token)) return;
+  state.programType = "existingBankr";
+  programChoices.forEach((input) => {
+    input.checked = input.value === "existingBankr";
+    selectLabel(input);
+  });
+  const field = document.querySelector("#existing-token-address");
+  if (field) field.value = token;
+  refreshPreview();
+}
+
 async function connectWallet() {
   if (!window.ethereum) {
     walletButton.textContent = "Wallet not found";
@@ -158,6 +237,7 @@ async function connectWallet() {
   const [account] = await window.ethereum.request({ method: "eth_requestAccounts" });
   state.connectedAccount = account;
   walletButton.innerHTML = `${shortAddress(account)} <span>●</span>`;
+  await loadBeneficiaryTokens(account);
   return account;
 }
 
@@ -567,6 +647,9 @@ async function verifyPostLaunchToken(event) {
     await connectWallet();
     await ensureRobinhoodChain();
     const lookup = await lookupBankrToken(tokenAddress);
+    if (state.connectedAccount) {
+      assertFeeRecipientAuthority(lookup.feeRecipientAddress, state.connectedAccount);
+    }
     await verifyFeeRecipient({
       poolId: lookup.poolId,
       router: state.lastRouter,
@@ -604,6 +687,7 @@ async function runExistingFlow(event) {
 
     output.textContent = "Looking up token on Bankr…";
     const lookup = await lookupBankrToken(tokenAddress);
+    assertFeeRecipientAuthority(lookup.feeRecipientAddress, account);
     bankrVerifyFields?.classList.remove("hidden");
 
     const router = await createRouterOnchain(account);
@@ -819,7 +903,18 @@ programChoices.forEach((input) => input.addEventListener("change", () => {
   selectLabel(input);
   state.programType = input.value;
   refreshPreview();
+  if (state.programType === "existingBankr" && state.connectedAccount) {
+    loadBeneficiaryTokens(state.connectedAccount);
+  }
 }));
+document.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-beneficiary-token]");
+  if (!button) return;
+  const field = document.querySelector("#existing-token-address");
+  if (field) field.value = button.dataset.beneficiaryToken;
+  refreshPreview();
+  lookupExistingToken(event);
+});
 form.querySelectorAll("input, select, textarea").forEach((input) => input.addEventListener("input", refreshPreview));
 walletButton.addEventListener("click", () => {
   connectWallet().catch(() => {
@@ -841,6 +936,7 @@ document.querySelector("#verify-fees-button")?.addEventListener("click", verifyE
 document.querySelector("#verify-post-launch-button")?.addEventListener("click", verifyPostLaunchToken);
 
 refreshPreview();
+applyDeepLinkToken();
 setWizardStep("ready", "Ready");
 loadApiStatus();
 loadPlatform().then(loadUniversalDirectory);

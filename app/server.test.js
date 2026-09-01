@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { once } from "node:events";
 import { publicPortFrom } from "./config.js";
-import { createServer, fetchBankrPairedStocks } from "./server.js";
+import { createServer, fetchBankrPairedStocks, fetchBankrBeneficiaryFees } from "./server.js";
 
 async function request(server, path) {
   const address = server.address();
@@ -150,4 +150,78 @@ test("bankr paired stocks endpoint proxies registry data", async (t) => {
   assert.equal(response.body.total, 1);
   assert.equal(response.body.items[0].symbol, "NVDA");
   assert.equal(response.body.source, "robinhood-rhj");
+});
+
+test("fetchBankrBeneficiaryFees filters robinhood stock-paired tokens", async () => {
+  const fetchImpl = async (url) => ({
+    ok: true,
+    async json() {
+      return {
+        totalLaunches: 2,
+        tokens: [
+          {
+            tokenAddress: "0x80db362eab104ec378e19d0a3dcd5e84bafd4ba3",
+            name: "Developers",
+            symbol: "DEVS",
+            chain: "robinhood",
+            poolId: "0x130caf8b43343e182a79a4046932bd5623a87e9309e7c53e2d1efb4ec6b8e2a0",
+            share: "95.00%",
+            token0Label: "DEVS",
+            token1Label: "MSFT",
+            source: "doppler",
+          },
+          {
+            tokenAddress: "0x894fac757250f8e02180e1856957274d84ac4ba3",
+            name: "RHAgent",
+            symbol: "RHAGENT",
+            chain: "robinhood",
+            poolId: "0x1722e4a21c93af7afa508e93e41d7bcde665d68e00995b5e53bbf4f51e7f8174",
+            share: "95.00%",
+            token0Label: "WETH",
+            token1Label: "RHAGENT",
+            source: "doppler",
+          },
+        ],
+      };
+    },
+  });
+
+  const payload = await fetchBankrBeneficiaryFees("0x374d91a5674fa7cf86e725093b5848b97e1e13b4", fetchImpl);
+  assert.equal(payload.eligibleCount, 1);
+  assert.equal(payload.items[0].symbol, "DEVS");
+  assert.equal(payload.items[0].pairedStockSymbol, "MSFT");
+});
+
+test("bankr beneficiary fees endpoint proxies wallet positions", async (t) => {
+  const fetchImpl = async (url) => {
+    if (String(url).includes("beneficiary-fees")) {
+      return {
+        ok: true,
+        async json() {
+          return {
+            tokens: [{
+              tokenAddress: "0x80db362eab104ec378e19d0a3dcd5e84bafd4ba3",
+              symbol: "DEVS",
+              chain: "robinhood",
+              poolId: "0xabc",
+              share: "95.00%",
+              token0Label: "DEVS",
+              token1Label: "MSFT",
+            }],
+          };
+        },
+      };
+    }
+    throw new Error(`unexpected url ${url}`);
+  };
+
+  const server = createServer({ env: { EXECUTION_MODE: "disabled" }, fetchImpl });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => server.close());
+
+  const response = await request(server, "/v1/bankr/beneficiary-fees/0x374d91a5674fa7cf86e725093b5848b97e1e13b4");
+  assert.equal(response.status, 200);
+  assert.equal(response.body.eligibleCount, 1);
+  assert.equal(response.body.items[0].symbol, "DEVS");
 });

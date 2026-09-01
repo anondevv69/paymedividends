@@ -79,6 +79,78 @@ export async function fetchBankrPairedStocks(fetchImpl = fetch) {
 /** @deprecated Use fetchBankrPairedStocks */
 export const fetchRobinhoodStocks = fetchBankrPairedStocks;
 
+const BANKR_BENEFICIARY_FEES = "https://api.bankr.bot/public/doppler/beneficiary-fees";
+
+function parseSharePercent(share) {
+  const match = String(share ?? "").match(/([\d.]+)/);
+  return match ? Number.parseFloat(match[1]) : 0;
+}
+
+function pairedStockLabel(token) {
+  const labels = [token.token0Label, token.token1Label].filter(Boolean);
+  const meme = String(token.symbol ?? "").toUpperCase();
+  for (const label of labels) {
+    const upper = String(label).toUpperCase();
+    if (upper !== "WETH" && upper !== "ETH" && upper !== meme) return upper;
+  }
+  return null;
+}
+
+export async function fetchBankrBeneficiaryFees(walletAddress, fetchImpl = fetch) {
+  const normalized = walletAddress.toLowerCase();
+  if (!/^0x[a-f0-9]{40}$/.test(normalized)) {
+    throw new Error("wallet_address_required");
+  }
+
+  const response = await fetchImpl(`${BANKR_BENEFICIARY_FEES}/${normalized}`, {
+    headers: { accept: "application/json" },
+  });
+  if (!response.ok) {
+    throw new Error(`Bankr beneficiary fees returned ${response.status}`);
+  }
+
+  const data = await response.json();
+  const eligible = (data.tokens ?? [])
+    .filter((token) => token.chain === "robinhood")
+    .filter((token) => parseSharePercent(token.share) >= 95)
+    .map((token) => ({
+      tokenAddress: token.tokenAddress,
+      name: token.name,
+      symbol: token.symbol,
+      chain: token.chain,
+      poolId: token.poolId,
+      share: token.share,
+      pairedStockSymbol: pairedStockLabel(token),
+      token0Label: token.token0Label,
+      token1Label: token.token1Label,
+      claimable: token.claimable,
+      source: token.source,
+    }))
+    .filter((token) => token.pairedStockSymbol);
+
+  return {
+    walletAddress: normalized,
+    totalLaunches: data.totalLaunches ?? eligible.length,
+    eligibleCount: eligible.length,
+    items: eligible,
+    source: "bankr-beneficiary-fees",
+    note: "Robinhood Chain tokens where this wallet is ≥95% fee beneficiary and paired with an RWA/stock quote.",
+  };
+}
+
+function serveBankrBeneficiaryFees(response, walletAddress, fetchImpl) {
+  fetchBankrBeneficiaryFees(walletAddress, fetchImpl)
+    .then((payload) => {
+      json(response, 200, payload, { cacheControl: "public, max-age=60" });
+    })
+    .catch((error) => {
+      json(response, 502, {
+        error: "bankr_beneficiary_fees_unavailable",
+        message: error?.message ?? "Could not load Bankr beneficiary positions.",
+      });
+    });
+}
+
 function serveBankrPairedStocks(response, fetchImpl) {
   fetchBankrPairedStocks(fetchImpl)
     .then((payload) => {
@@ -170,6 +242,12 @@ export function createServer({
 
     if (pathname === "/v1/bankr/paired-stocks" || pathname === "/v1/robinhood/stocks") {
       serveBankrPairedStocks(response, fetchImpl);
+      return;
+    }
+
+    const beneficiaryMatch = pathname.match(/^\/v1\/bankr\/beneficiary-fees\/(0x[a-fA-F0-9]{40})$/);
+    if (beneficiaryMatch) {
+      serveBankrBeneficiaryFees(response, beneficiaryMatch[1], fetchImpl);
       return;
     }
 
