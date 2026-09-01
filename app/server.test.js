@@ -51,6 +51,94 @@ test("universal directory never invents contributor tokens before deployment", a
   assert.equal(response.body.verifiedContributorCount, 0);
 });
 
+test("universal directory builds from onchain and doppler sources", async (t) => {
+  const factory = "0x4AD615B99e2B6E8e2C322c657Ac8f81F1806A3a7";
+  const hub = "0x6844D0814E904722777A48Ae2CF7C4b8F78a19e5";
+  const router = "0x00000000000000000000000000000000000000a1";
+  const token = "0x0000000000000000000000000000000000000b1";
+
+  const fetchImpl = async (url, init) => {
+    const body = init?.body ? JSON.parse(init.body) : null;
+    if (String(url).includes("prod.indexer.doppler.lol")) {
+      const query = body?.query ?? "";
+      return {
+        ok: true,
+        async json() {
+          if (query.includes("userAssets")) {
+            return { data: { userAssets: { totalCount: 42 } } };
+          }
+          return {
+            data: {
+              pools: {
+                items: [{
+                  address: "0x130caf8b43343e182a79a4046932bd5623a87e9309e7c53e2d1efb4ec6b8e2a0",
+                  marketCapUsd: "1000000000000000000",
+                  holderCount: 42,
+                  volumeUsd: "500000000000000000",
+                  beneficiaries: [{ shares: "950000000000000000", beneficiary: router }],
+                  quoteToken: { address: "0xmsft", symbol: "MSFT", name: "Microsoft" },
+                  baseToken: { address: token, symbol: "DEVS", name: "Developers" },
+                }],
+              },
+            },
+          };
+        },
+      };
+    }
+
+    const method = body?.method;
+    const params = body?.params ?? [];
+    const rpcResult = (result) => ({
+      ok: true,
+      async json() {
+        return { jsonrpc: "2.0", id: 1, result };
+      },
+    });
+
+    if (method === "eth_call") {
+      const data = params[0]?.data ?? "";
+      if (data.startsWith("0x8e67e049")) return rpcResult("0x0000000000000000000000000000000000000000000000000000000000000001");
+      if (data.startsWith("0x4e3fda2a")) return rpcResult(router);
+      if (data.startsWith("0x5fb6c6ed")) return rpcResult("0x0000000000000000000000000000000000000000000000000000000000000001");
+      if (data.startsWith("0x3853922b")) return rpcResult(token);
+      if (data.startsWith("0x036a9955")) return rpcResult("0x00000000000000000000000000000000000000c1");
+      if (data.startsWith("0x29aa1617")) return rpcResult(token);
+      if (data.startsWith("0x39191d7b")) return rpcResult("0x0000000000000000000000000000000000000d1");
+      if (data.startsWith("0xcc8567eb")) return rpcResult("0x0000000000000000000000000000000000000000000000000000000000000001");
+      if (data.startsWith("0x1aa8685b")) return rpcResult("0x130caf8b43343e182a79a4046932bd5623a87e9309e7c53e2d1efb4ec6b8e2a0");
+      if (data.startsWith("0x4def65ee")) return rpcResult("0x0000000000000000000000000000000000000000000000000000000000000001");
+      if (data.startsWith("0x0ab29808")) return rpcResult(router);
+      if (data.startsWith("0xdef23dee")) return rpcResult("0x0000000000000000000000000000000000000000000000000000000000000000");
+      if (data.startsWith("0x5dac9401")) return rpcResult("0x0");
+      if (data.startsWith("0x5ebb58fb")) return rpcResult("0x0000000000000000000000d870d302000000000000");
+      return rpcResult("0x");
+    }
+    if (method === "eth_getLogs") return rpcResult([]);
+    return rpcResult("0x");
+  };
+
+  const server = createServer({
+    env: {
+      EXECUTION_MODE: "disabled",
+      UNIVERSAL_REWARDS_HUB: hub,
+      PROJECT_ROUTER_FACTORY: factory,
+      MANIFEST_DIR: `/tmp/pmd-directory-${Date.now()}`,
+    },
+    fetchImpl,
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => server.close());
+
+  const response = await request(server, "/v1/directory");
+  assert.equal(response.status, 200);
+  assert.equal(response.body.phase, "directory_live");
+  assert.equal(response.body.verifiedContributorCount, 1);
+  assert.equal(response.body.items[0].symbol, "DEVS");
+  assert.equal(response.body.items[0].pairedStockSymbol, "MSFT");
+  assert.equal(response.body.items[0].holderCount, 42);
+});
+
 test("platform endpoint exposes live factory and hub fields", async (t) => {
   const hub = "0x6844D0814E904722777A48Ae2CF7C4b8F78a19e5";
   const factory = "0x4AD615B99e2B6E8e2C322c657Ac8f81F1806A3a7";
