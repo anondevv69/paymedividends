@@ -8,9 +8,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,500;6..72,600;6..72,700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=launch-wizard-5" />
+    <link rel="stylesheet" href="/styles.css?v=launch-wizard-7" />
     <script>window.PAYMENTS_API_URL = __PUBLIC_API_URL__;</script>
-    <script type="module" src="/app.js?v=launch-wizard-5"></script>
+    <script type="module" src="/app.js?v=launch-wizard-7"></script>
   </head>
   <body>
     <div class="grain" aria-hidden="true"></div>
@@ -28,7 +28,7 @@
       <section class="hero section-shell">
         <div class="eyebrow"><span class="pulse"></span> Robinhood Chain · shared RWA rewards</div>
         <h1>Launch a token<br />that pays its <em>holders.</em></h1>
-        <p class="hero-copy">Connect a wallet, create a fee router, and launch on Bankr — or point an existing token’s fees at a router to join the shared holder sink. No API keys required for the normal path.</p>
+        <p class="hero-copy">Every launch routes trading fees to holders pro-rata — never a creator wallet. Connect wallet, deploy on Bankr with a holder reward router, and verify onchain. Already live? Point your token at the sink.</p>
         <div class="hero-actions">
           <a class="button button-primary" href="#test-lab">Get started <span>↓</span></a>
           <a class="button button-quiet" href="#how-it-works">See the mechanics <span>↘</span></a>
@@ -41,23 +41,23 @@
       </section>
 
       <section class="ticker" aria-label="Supported payout concepts">
-        <span>ROUTER + BANKR LAUNCH</span><i>✦</i><span>TOKEN LOOKUP</span><i>✦</i><span>ONCHAIN FEE VERIFY</span><i>✦</i><span>SHARED HUB</span><i>✦</i><span>NO API KEY STORAGE</span><i>✦</i>
+        <span>HOLDER PRO-RATA</span><i>✦</i><span>ROUTER + BANKR LAUNCH</span><i>✦</i><span>ONCHAIN VERIFY</span><i>✦</i><span>SHARED RWA HUB</span><i>✦</i><span>NO CREATOR FEE WALLET</span><i>✦</i>
       </section>
 
       <section class="section-shell how" id="how-it-works">
         <div class="section-kicker">01 / The model</div>
-        <div class="section-heading split-heading"><h2>Two paths.<br /><em>One sink.</em></h2><p>Launching new? Create a router, launch on Bankr, paste the router as fee recipient. Already live? Create a router and point your token’s fees here.</p></div>
+        <div class="section-heading split-heading"><h2>Two paths.<br /><em>One rule.</em></h2><p>Trading fees always route to holders pro-rata via a Project Router — there is no creator-fee wallet option. Launch new or join with an existing token.</p></div>
         <div class="path-grid">
           <article class="path-card lime-card">
             <span class="card-number">01</span>
             <h3>Launching<br />a new token</h3>
-            <p>Connect wallet → create fee router → launch on Bankr with that router as fee recipient.</p>
-            <ol><li>Create router</li><li>Launch on Bankr</li><li>Verify fees</li></ol>
+            <p>Router + Bankr launch. Fees go to the holder sink from day one — split pro-rata by token balance.</p>
+            <ol><li>Create router</li><li>Launch on Bankr</li><li>Holders claim RWA</li></ol>
           </article>
           <article class="path-card dark-card">
             <span class="card-number">02</span>
             <h3>Already<br />deployed</h3>
-            <p>Paste your token address. We look up the pool and check whether fees hit your router.</p>
+            <p>Retarget fees to a holder router. Trading revenue flows to your community, not a personal wallet.</p>
             <ol><li>Paste token</li><li>Create router</li><li>Retarget fees</li></ol>
           </article>
           <article class="path-card dark-card">
@@ -74,16 +74,16 @@
           <div class="section-kicker">02 / Live contracts</div>
           <div class="section-heading"><h2>Factory + Hub<br /><em>are live.</em></h2></div>
           <div class="contract-list">
-            <div class="contract-row"><span class="contract-index">01</span><div><h3>ProjectRouterFactory</h3><p>Creates one Project Router per Bankr token. Each router is that token’s fee recipient.</p></div><span class="contract-state" id="factory-state">Live</span></div>
-            <div class="contract-row"><span class="contract-index">02</span><div><h3>UniversalRewardsHub</h3><p>Shared accounting for approved RWA fees, equal-slice rounds, and Merkle claims.</p></div><span class="contract-state" id="hub-state">Live</span></div>
-            <div class="contract-row"><span class="contract-index">03</span><div><h3>ProjectRouter</h3><p>Created automatically during launch. Receives Bankr fees and forwards approved assets into the Hub.</p></div><span class="contract-state">Launch below</span></div>
+            <div class="contract-row"><span class="contract-index">01</span><div><h3>ProjectRouterFactory</h3><p>Creates one holder reward router per token. Bankr sends trading fees here — never to a creator wallet.</p></div><span class="contract-state" id="factory-state">Live</span></div>
+            <div class="contract-row"><span class="contract-index">02</span><div><h3>UniversalRewardsHub</h3><p>Shared RWA accounting. Holders claim pro-rata from Merkle rounds — paid in the paired stock token.</p></div><span class="contract-state" id="hub-state">Live</span></div>
+            <div class="contract-row"><span class="contract-index">03</span><div><h3>ProjectRouter</h3><p>Collects quote/RWA trading fees and forwards them into the Hub for holder claims.</p></div><span class="contract-state">Launch below</span></div>
           </div>
         </div>
       </section>
 
       <section class="lab section-shell" id="test-lab">
         <div class="section-kicker">03 / Launch wizard</div>
-        <div class="section-heading split-heading"><h2>Fee router<br /><em>wizard.</em></h2><p>Most users only need a wallet. Launch on Bankr separately, paste the router as fee recipient, then verify.</p></div>
+        <div class="section-heading split-heading"><h2>Launch<br /><em>wizard.</em></h2><p>Holder pro-rata only — the router is the fee destination at launch, every time. No creator-fee wallet path.</p></div>
         <div class="lab-grid">
           <form class="builder" id="program-form">
             <div class="builder-head"><span>Launch wizard</span><strong id="setup-mode">Robinhood live</strong></div>
@@ -99,33 +99,35 @@
             <fieldset>
               <legend>1. Which are you?</legend>
               <div class="choice-grid">
-                <label class="choice selected"><input type="radio" name="programType" value="newBankr" checked /><span><b>I’m launching a new token</b><small>Create a fee router, then launch on Bankr</small></span></label>
+                <label class="choice selected"><input type="radio" name="programType" value="newBankr" checked /><span><b>I’m launching a new token</b><small>Router + Bankr deploy → holders claim pro-rata</small></span></label>
                 <label class="choice"><input type="radio" name="programType" value="existingBankr" /><span><b>I already have a token</b><small>Join the fee sink / shared Hub</small></span></label>
               </div>
             </fieldset>
 
             <fieldset id="new-token-fields">
-              <legend>2. New token path</legend>
-              <ol class="step-list">
-                <li><span>01</span><p>Connect wallet and create a Project Router here (small gas fee).</p></li>
-                <li><span>02</span><p>Launch your token on <a href="https://bankr.bot/terminal" target="_blank" rel="noreferrer">Bankr</a> and paste the router as the <strong>fee recipient</strong>.</p></li>
-                <li><span>03</span><p>Come back and paste your token address to verify fees point at the router.</p></li>
-              </ol>
-              <p class="field-note">No Bankr API key needed. Use Bankr’s site or app the way you normally would — we only create the fee sink address.</p>
-              <label class="choice-inline"><input id="use-bankr-api" type="checkbox" /> Advanced: launch from this site with a Bankr API key</label>
+              <legend>2. Token + launch</legend>
+              <p class="field-note field-note-prominent">Trading fees always route to holders pro-rata (Pons-style). The Project Router is the Bankr fee recipient — not your personal wallet.</p>
+              <div id="bankr-integrated-fields">
+                <div class="field-row">
+                  <label>Token name<input id="token-name" name="tokenName" value="My Community Token" maxlength="64" autocomplete="off" /></label>
+                  <label>Token symbol<input id="token-symbol" name="tokenSymbol" value="MCT" maxlength="12" autocomplete="off" /></label>
+                </div>
+                <label>Paired stock (optional)<input id="paired-stock-search" list="paired-stock-list" placeholder="Search ticker, e.g. NVDA — NVIDIA" autocomplete="off" spellcheck="false" /><datalist id="paired-stock-list"></datalist></label>
+                <p class="field-note" id="paired-stock-status">Loading Bankr-compatible Robinhood stocks…</p>
+                <label>Bankr user API key<input id="bankr-api-key" name="bankrApiKey" type="password" autocomplete="off" placeholder="bk_usr_…" spellcheck="false" /></label>
+                <p class="field-note">Get a key from <a href="https://bankr.bot/terminal" target="_blank" rel="noreferrer">Bankr</a> (account settings). Sent to api.bankr.bot from this browser only — never stored on our servers.</p>
+                <label class="choice-inline"><input id="simulate-launch" type="checkbox" /> Dry run first (simulateOnly — no token deployed)</label>
+              </div>
+              <label class="choice-inline"><input id="manual-bankr-handoff" type="checkbox" /> I’ll launch on Bankr separately (router only, no API key)</label>
             </fieldset>
 
-            <fieldset id="bankr-advanced-fields" class="hidden">
-              <legend>Advanced Bankr launch</legend>
-              <div class="field-row">
-                <label>Token name<input id="token-name" name="tokenName" value="My Community Token" maxlength="64" autocomplete="off" /></label>
-                <label>Token symbol<input id="token-symbol" name="tokenSymbol" value="MCT" maxlength="12" autocomplete="off" /></label>
-              </div>
-              <label>Paired stock (optional)<input id="paired-stock-search" list="paired-stock-list" placeholder="Search ticker, e.g. NVDA — NVIDIA" autocomplete="off" spellcheck="false" /><datalist id="paired-stock-list"></datalist></label>
-              <p class="field-note" id="paired-stock-status">Loading Bankr-compatible Robinhood stocks…</p>
-              <label>Bankr user API key<input id="bankr-api-key" name="bankrApiKey" type="password" autocomplete="off" placeholder="bk_usr_…" spellcheck="false" /></label>
-              <p class="field-note">Optional power-user path. Key goes to api.bankr.bot from this browser only.</p>
-              <label class="choice-inline"><input id="simulate-launch" type="checkbox" /> Dry run first (simulateOnly — no token deployed)</label>
+            <fieldset id="bankr-handoff-fields" class="hidden">
+              <legend>Manual Bankr launch</legend>
+              <ol class="step-list">
+                <li><span>01</span><p>We create a Project Router here (small gas fee).</p></li>
+                <li><span>02</span><p>Launch on <a href="https://bankr.bot/terminal" target="_blank" rel="noreferrer">Bankr</a> with the router as fee recipient — fees go to holders, not you.</p></li>
+                <li><span>03</span><p>Paste your token address below to verify.</p></li>
+              </ol>
             </fieldset>
 
             <fieldset id="existing-token-fields" class="hidden">
@@ -150,7 +152,7 @@
               <legend>Network</legend>
               <div class="field-row">
                 <label>Network<input id="network" name="network" value="Robinhood Chain" readonly /></label>
-                <label>Fee policy<input value="Quote-only · 95% shared / 5% infra" readonly /></label>
+                <label>Fee policy<input value="Holder pro-rata · quote-only RWA · 95% shared / 5% infra" readonly /></label>
               </div>
             </fieldset>
 
@@ -164,16 +166,16 @@
               <button class="button button-quiet verify-button" id="verify-fees-button" type="button">Re-check onchain fee share <span>↻</span></button>
             </fieldset>
 
-            <button class="button button-primary build-button" id="create-router-button" type="submit">Create fee router <span>→</span></button>
-            <p class="form-safety">Wallet only for router creation. Launch the token on Bankr yourself, or use the advanced API path if you already have a key.</p>
+            <button class="button button-primary build-button" id="create-router-button" type="submit">Create router + launch on Bankr <span>→</span></button>
+            <p class="form-safety">Every launch uses the holder router as Bankr fee recipient. Fees split pro-rata to token holders — there is no creator-keep option. Your Bankr API key never leaves this browser.</p>
           </form>
 
           <aside class="blueprint" aria-live="polite">
             <div class="builder-head"><span>Launch status</span><strong id="blueprint-state">Ready</strong></div>
             <div class="blueprint-visual">
               <div class="node node-token" id="blueprint-token">$MCT community</div>
-              <span id="blueprint-source">Bankr fee recipient</span>
-              <div class="node node-vault" id="blueprint-vault">Router + Bankr launch</div>
+              <span id="blueprint-source">Holder pro-rata sink</span>
+              <div class="node node-vault" id="blueprint-vault">Router → Hub → holders</div>
               <span id="blueprint-arrow">95% shared rewards · 5% infrastructure</span>
               <div class="node node-asset" id="blueprint-asset">Hub RWA claims</div>
             </div>
@@ -182,7 +184,7 @@
               <span class="card-label">Launch on Bankr</span>
               <ol class="step-list compact-steps">
                 <li><span>→</span><p>Open Bankr and start a Robinhood Chain launch.</p></li>
-                <li><span>→</span><p>Set <strong>fee recipient</strong> to your router address (copied above).</p></li>
+                <li><span>→</span><p>Set fee recipient to your router — holder rewards, not a creator wallet.</p></li>
                 <li><span>→</span><p>Paste the token address back here and verify.</p></li>
               </ol>
               <div class="router-actions">
@@ -192,7 +194,7 @@
             </div>
 
             <div class="router-result hidden" id="router-result">
-              <span class="card-label">Project Router (fee recipient)</span>
+              <span class="card-label">Holder reward router</span>
               <code id="router-address"></code>
               <div class="router-actions">
                 <button class="button button-primary" id="copy-router" type="button">Copy router</button>
@@ -219,7 +221,7 @@
               <div><dt>Factory</dt><dd id="detail-factory">Loading…</dd></div>
               <div><dt>Hub</dt><dd id="detail-hub">Loading…</dd></div>
             </dl>
-            <div class="blueprint-output" id="blueprint-output">Pick your path above. Most people only need a wallet — create a fee router, launch on Bankr, paste the router as fee recipient.</div>
+            <div class="blueprint-output" id="blueprint-output">Every launch routes trading fees to holders pro-rata. Connect wallet, enter token details, and deploy — the router is always the fee sink.</div>
           </aside>
         </div>
       </section>
@@ -234,6 +236,6 @@
       </section>
     </main>
 
-    <footer><span>© 2026 Pay Me Dividends</span><span>Bankr key stays in browser · router + launch live</span><a href="https://api.paymedividends.xyz/v1/platform" target="_blank" rel="noreferrer">API status ↗</a></footer>
+    <footer><span>© 2026 Pay Me Dividends</span><span>Holder pro-rata only · no creator fee wallet</span><a href="https://api.paymedividends.xyz/v1/platform" target="_blank" rel="noreferrer">API status ↗</a></footer>
   </body>
 </html>
