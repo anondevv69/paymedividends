@@ -1,6 +1,6 @@
 /**
- * In-memory ERC-20 transfer indexer used to reconstruct holder sets at a snapshot block.
- * Production can swap the store for Postgres while keeping the same apply/getBalances API.
+ * Test-only in-memory transfer applier.
+ * Production payouts use snapshot-on-demand via app/snapshot.js (no persistent history).
  */
 export function createTransferIndexer({ store = createMemoryStore() } = {}) {
   return {
@@ -32,12 +32,12 @@ export function createTransferIndexer({ store = createMemoryStore() } = {}) {
 }
 
 export function createMemoryStore() {
-  /** @type {Map<string, { balances: Map<string, bigint>, history: Array, cursor: object|null }>} */
+  /** @type {Map<string, { balances: Map<string, bigint>, events: Array, cursor: object|null }>} */
   const tokens = new Map();
 
   function tokenState(token) {
     if (!tokens.has(token)) {
-      tokens.set(token, { balances: new Map(), history: [], cursor: null });
+      tokens.set(token, { balances: new Map(), events: [], cursor: null });
     }
     return tokens.get(token);
   }
@@ -53,7 +53,7 @@ export function createMemoryStore() {
       if (next < 0n) throw new Error(`negative_balance:${token}:${account}`);
       if (next === 0n) state.balances.delete(account);
       else state.balances.set(account, next);
-      state.history.push({ account, delta, blockNumber, logIndex, balanceAfter: next });
+      state.events.push({ account, delta, blockNumber, logIndex });
     },
 
     async markCursor(token, blockNumber, logIndex, txHash) {
@@ -73,7 +73,7 @@ export function createMemoryStore() {
       }
 
       const reconstructed = new Map();
-      for (const entry of state.history) {
+      for (const entry of state.events) {
         if (entry.blockNumber > atBlock) break;
         const next = (reconstructed.get(entry.account) ?? 0n) + entry.delta;
         if (next === 0n) reconstructed.delete(entry.account);

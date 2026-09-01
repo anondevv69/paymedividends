@@ -25,12 +25,16 @@ query Pool($baseToken: String!, $chainId: Float!) {
 }`;
 
 const HOLDERS_QUERY = `
-query Holders($assetId: String!, $chainId: Int!, $limit: Int!) {
+query Holders($assetId: String!, $chainId: Int!, $limit: Int!, $offset: Int!, $orderBy: String!, $orderDirection: String!) {
   userAssets(
     where: { assetId: $assetId, chainId: $chainId, balance_gt: "0" }
     limit: $limit
+    offset: $offset
+    orderBy: $orderBy
+    orderDirection: $orderDirection
   ) {
     totalCount
+    items { userId balance assetId }
   }
 }`;
 
@@ -70,11 +74,45 @@ export async function fetchDopplerHolderCount(tokenAddress, fetchImpl = fetch) {
       assetId: tokenAddress.toLowerCase(),
       chainId: ROBINHOOD_CHAIN_ID,
       limit: 1,
+      offset: 0,
+      orderBy: "balance",
+      orderDirection: "desc",
     }, fetchImpl);
     return data?.userAssets?.totalCount ?? null;
   } catch {
     return null;
   }
+}
+
+export async function fetchDopplerHolders(tokenAddress, fetchImpl = fetch, { pageSize = 200, maxPages = 100 } = {}) {
+  const assetId = tokenAddress.toLowerCase();
+  const holders = [];
+  let totalCount = null;
+  let offset = 0;
+
+  for (let page = 0; page < maxPages; page += 1) {
+    const data = await gql(HOLDERS_QUERY, {
+      assetId,
+      chainId: ROBINHOOD_CHAIN_ID,
+      limit: pageSize,
+      offset,
+      orderBy: "balance",
+      orderDirection: "desc",
+    }, fetchImpl);
+    const batch = data?.userAssets;
+    if (totalCount == null) totalCount = batch?.totalCount ?? holders.length;
+    const items = batch?.items ?? [];
+    for (const item of items) {
+      holders.push({
+        account: String(item.userId).toLowerCase(),
+        balance: BigInt(item.balance),
+      });
+    }
+    if (items.length < pageSize) break;
+    offset += pageSize;
+  }
+
+  return { totalCount: totalCount ?? holders.length, holders };
 }
 
 export function parseUsdFixed(raw) {

@@ -24,6 +24,17 @@ export function platformConfig(env = process.env) {
       Number.parseInt(env.WORKER_POLL_INTERVAL_MS ?? String(60 * 60 * 1000), 10),
       60 * 60 * 1000,
     ),
+    enrollmentMinTotalHolders: Math.max(
+      Number.parseInt(env.ENROLLMENT_MIN_TOTAL_HOLDERS ?? "100", 10),
+      1,
+    ),
+    enrollmentMinQualifiedHolders: Math.max(
+      Number.parseInt(env.ENROLLMENT_MIN_QUALIFIED_HOLDERS ?? "100", 10),
+      1,
+    ),
+    enrollmentMinQualifiedBalance: BigInt(
+      env.ENROLLMENT_MIN_QUALIFIED_BALANCE ?? "10000000",
+    ),
   });
 }
 

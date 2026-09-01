@@ -1,7 +1,8 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { listEnrollmentRequests } from "./enrollment.js";
-import { fetchDopplerHolderCount, fetchDopplerPool, fetchDopplerToken, normalizeDopplerPool } from "./doppler.js";
+import { fetchDopplerPool, fetchDopplerToken, normalizeDopplerPool } from "./doppler.js";
+import { fetchRobinscanHolderCount } from "./robinscan.js";
 import {
   decodeAddress,
   decodeBool,
@@ -238,7 +239,7 @@ async function enrichTokenMetrics(tokenAddress, fetchImpl) {
   try {
     const [pool, holderCount] = await Promise.all([
       fetchDopplerPool(tokenAddress, fetchImpl).catch(() => null),
-      fetchDopplerHolderCount(tokenAddress, fetchImpl).catch(() => null),
+      fetchRobinscanHolderCount(tokenAddress, fetchImpl).catch(() => null),
     ]);
     const normalized = normalizeDopplerPool(pool);
     if (!normalized) {
@@ -247,6 +248,7 @@ async function enrichTokenMetrics(tokenAddress, fetchImpl) {
         symbol: token?.symbol ?? null,
         name: token?.name ?? null,
         holderCount,
+        holderCountSource: holderCount != null ? "robinscan" : null,
       };
     }
     return {
@@ -256,7 +258,8 @@ async function enrichTokenMetrics(tokenAddress, fetchImpl) {
       pairedStockAddress: normalized.pairedStockAddress,
       marketCapUsd: normalized.marketCapUsd,
       volumeUsd: normalized.volumeUsd,
-      holderCount: normalized.holderCount ?? holderCount,
+      holderCount,
+      holderCountSource: holderCount != null ? "robinscan" : null,
       poolId: normalized.poolId,
       feeBeneficiary: normalized.feeBeneficiary,
       lastSwapTimestamp: normalized.lastSwapTimestamp,
@@ -408,6 +411,7 @@ export async function buildDirectoryIndex({
       marketCapUsd: metrics.marketCapUsd ?? null,
       volumeUsd: metrics.volumeUsd ?? null,
       holderCount: metrics.holderCount ?? null,
+      holderCountSource: metrics.holderCountSource ?? null,
       lastSwapTimestamp: metrics.lastSwapTimestamp ?? null,
       feeBeneficiary: metrics.feeBeneficiary ?? null,
       explorerToken: tokenAddress
@@ -433,6 +437,7 @@ export async function buildDirectoryIndex({
     sources: {
       onchain: "ProjectRouterFactory + UniversalRewardsHub",
       marketData: "https://prod.indexer.doppler.lol/",
+      holderData: "https://robinscan.io/",
       enrollmentQueue: manifestDir ? "MANIFEST_DIR/enrollment-requests.jsonl" : null,
     },
     totals: {

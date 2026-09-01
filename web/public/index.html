@@ -149,6 +149,7 @@
                 <label>Fee manager (Robinhood)<input id="fee-manager" name="feeManager" value="0x4e3468951D49f2EEa976eD0D6e75fFCb44a9a544" readonly spellcheck="false" /></label>
               </div>
               <div class="bankr-pair-readout hidden" id="fee-verify-readout"></div>
+              <div class="bankr-pair-readout hidden" id="holder-stats-readout"></div>
               <div class="router-actions">
                 <button class="button button-primary hidden" id="retarget-fees-button" type="button">Retarget fees to router <span>→</span></button>
                 <button class="button button-quiet verify-button" id="verify-fees-button" type="button">Re-check onchain fee share <span>↻</span></button>
@@ -227,7 +228,7 @@
           <div class="leaderboard-chart" id="leaderboard-chart"></div>
         </div>
         <div class="member-table-wrap">
-          <div class="member-table-head"><span class="card-label">Sink index</span><p>Factory routers, fee retarget status, Hub enrollment, pair, market cap, and holders — sourced from chain + Doppler.</p></div>
+          <div class="member-table-head"><span class="card-label">Sink index</span><p>Factory routers, fee retarget status, Hub enrollment, pair, market cap (Doppler), and holders (Robinscan) — plus onchain fee verify.</p></div>
           <div class="member-table" id="member-table" aria-live="polite">
             <div class="member-table-row member-table-header">
               <span>Token</span><span>Pair</span><span>Status</span><span>Market cap</span><span>Volume</span><span>Holders</span><span>Router</span>
