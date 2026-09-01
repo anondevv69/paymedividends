@@ -11,37 +11,85 @@ function json(response, status, body, { cacheControl = "no-store" } = {}) {
   response.end(JSON.stringify(body));
 }
 
-const ROBINSCAN_STOCKS_API = "https://robinscan.io/api/stocks";
+const ROBINHOOD_RHJ_ASSETS = "https://api.robinhood.com/rhj/assets";
+const ROBINHOOD_RHJ_PRICES = "https://api.robinhood.com/rhj/prices";
 
-export async function fetchRobinhoodStocks(fetchImpl = fetch) {
-  const stocks = [];
-  let page = 1;
-  let total = 0;
-
-  while (page <= 20) {
-    const response = await fetchImpl(`${ROBINSCAN_STOCKS_API}?page=${page}`, {
-      headers: { accept: "application/json" },
-    });
-    if (!response.ok) {
-      throw new Error(`Robinscan returned ${response.status}`);
-    }
-
-    const data = await response.json();
-    const items = data.items ?? [];
-    total = data.total ?? total;
-    stocks.push(...items);
-    if (!items.length || stocks.length >= total) break;
-    page += 1;
+export async function fetchBankrPairedStocks(fetchImpl = fetch) {
+  const assetsResponse = await fetchImpl(ROBINHOOD_RHJ_ASSETS, {
+    headers: { accept: "application/json" },
+  });
+  if (!assetsResponse.ok) {
+    throw new Error(`Robinhood assets returned ${assetsResponse.status}`);
   }
 
-  stocks.sort((left, right) => {
-    if (left.isOfficialStock !== right.isOfficialStock) {
-      return Number(right.isOfficialStock) - Number(left.isOfficialStock);
+  let priceBySymbol = new Map();
+  try {
+    const pricesResponse = await fetchImpl(ROBINHOOD_RHJ_PRICES, {
+      headers: { accept: "application/json" },
+    });
+    if (pricesResponse.ok) {
+      const pricesData = await pricesResponse.json();
+      for (const quote of pricesData.quotes ?? []) {
+        priceBySymbol.set(quote.tokenSymbol, quote);
+      }
     }
-    return String(left.symbol).localeCompare(String(right.symbol));
-  });
+  } catch {
+    priceBySymbol = new Map();
+  }
 
-  return { items: stocks, total: total || stocks.length, source: "robinscan" };
+  const assetsData = await assetsResponse.json();
+  const items = [];
+
+  for (const asset of assetsData.assets ?? []) {
+    if (asset.status !== "ASSET_STATUS_ACTIVE") continue;
+
+    const deployment = (asset.deployments ?? []).find((entry) => entry.chainId === 4663);
+    if (!deployment?.contractAddress) continue;
+
+    const tradable = asset.tradingCapabilities?.market?.whole;
+    if (tradable && tradable !== "TRADING_STATUS_TRADABLE") continue;
+
+    const quote = priceBySymbol.get(asset.tokenSymbol);
+    if (priceBySymbol.size > 0) {
+      const bid = Number(quote?.bid ?? 0);
+      const ask = Number(quote?.ask ?? 0);
+      if (!(bid > 0) || !(ask > 0)) continue;
+    }
+
+    items.push({
+      symbol: asset.tokenSymbol,
+      name: String(asset.tokenName).replace(/ • Robinhood Token$/i, ""),
+      address: deployment.contractAddress,
+      isOfficialStock: true,
+      priceUsd: quote?.bid && quote?.ask ? (Number(quote.bid) + Number(quote.ask)) / 2 : null,
+    });
+  }
+
+  items.sort((left, right) => left.symbol.localeCompare(right.symbol));
+
+  return {
+    items,
+    total: items.length,
+    source: "robinhood-rhj",
+    registry: ROBINHOOD_RHJ_ASSETS,
+    note: "Robinhood official stock registry — the same chain-4663 addresses Bankr accepts as pairedStockAddress.",
+  };
+}
+
+/** @deprecated Use fetchBankrPairedStocks */
+export const fetchRobinhoodStocks = fetchBankrPairedStocks;
+
+function serveBankrPairedStocks(response, fetchImpl) {
+  fetchBankrPairedStocks(fetchImpl)
+    .then((payload) => {
+      json(response, 200, payload, { cacheControl: "public, max-age=300" });
+    })
+    .catch((error) => {
+      json(response, 502, {
+        error: "bankr_paired_stocks_unavailable",
+        message: error?.message ?? "Could not load Bankr-compatible paired stocks.",
+      });
+    });
 }
 
 export function createServer({
@@ -120,17 +168,8 @@ export function createServer({
       return;
     }
 
-    if (pathname === "/v1/robinhood/stocks") {
-      fetchRobinhoodStocks(fetchImpl)
-        .then((payload) => {
-          json(response, 200, payload, { cacheControl: "public, max-age=300" });
-        })
-        .catch((error) => {
-          json(response, 502, {
-            error: "robinscan_unavailable",
-            message: error?.message ?? "Could not load Robinhood stocks.",
-          });
-        });
+    if (pathname === "/v1/bankr/paired-stocks" || pathname === "/v1/robinhood/stocks") {
+      serveBankrPairedStocks(response, fetchImpl);
       return;
     }
 

@@ -687,7 +687,7 @@ async function loadPairedStocks() {
   if (!datalist) return;
 
   try {
-    const response = await fetch(`${window.PAYMENTS_API_URL}/v1/robinhood/stocks`, {
+    const response = await fetch(`${window.PAYMENTS_API_URL}/v1/bankr/paired-stocks`, {
       signal: AbortSignal.timeout(20000),
     });
     if (!response.ok) throw new Error("Stock registry unavailable");
@@ -699,9 +699,7 @@ async function loadPairedStocks() {
     datalist.replaceChildren();
 
     stocks.forEach((stock) => {
-      const label = stock.isOfficialStock
-        ? `${stock.symbol} — ${stock.name}`
-        : `${stock.symbol} — ${stock.name} (community)`;
+      const label = `${stock.symbol} — ${stock.name}`;
       state.pairedStockByLabel.set(label, stock.address);
       const option = document.createElement("option");
       option.value = label;
@@ -710,12 +708,12 @@ async function loadPairedStocks() {
 
     if (status) {
       status.textContent =
-        `${stocks.length} Robinhood stocks loaded. Leave blank for the default quote pool. Bankr may reject unpriceable pairs.`;
+        `${stocks.length} Bankr-compatible Robinhood stocks loaded (official registry). Leave blank for the default quote pool.`;
     }
   } catch {
     if (status) {
       status.textContent =
-        "Could not load the stock list from the API proxy. You can still launch without a stock pair.";
+        "Could not load the Bankr stock registry. You can still launch without a stock pair.";
     }
   }
 }

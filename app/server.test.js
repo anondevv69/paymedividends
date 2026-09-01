@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { once } from "node:events";
 import { publicPortFrom } from "./config.js";
-import { createServer, fetchRobinhoodStocks } from "./server.js";
+import { createServer, fetchBankrPairedStocks } from "./server.js";
 
 async function request(server, path) {
   const address = server.address();
@@ -76,50 +76,78 @@ test("public port falls back to the Railway-compatible port", () => {
   assert.equal(publicPortFrom({ PUBLIC_PORT: "invalid" }), 3000);
 });
 
-test("fetchRobinhoodStocks aggregates paginated Robinscan results", async () => {
+test("fetchBankrPairedStocks maps Robinhood RHJ assets for Bankr launches", async () => {
   const fetchImpl = async (url) => {
-    const page = new URL(url).searchParams.get("page");
-    if (page === "1") {
+    if (String(url).includes("/rhj/assets")) {
       return {
         ok: true,
         async json() {
           return {
-            total: 2,
-            items: [
-              { symbol: "ZZZ", name: "Late", address: "0x2", isOfficialStock: false },
-              { symbol: "AAPL", name: "Apple", address: "0x1", isOfficialStock: true },
-            ],
+            assets: [{
+              tokenSymbol: "AAPL",
+              tokenName: "Apple • Robinhood Token",
+              status: "ASSET_STATUS_ACTIVE",
+              deployments: [{ chainId: 4663, contractAddress: "0xaf3d76f1834a1d425780943c99ea8a608f8a93f9" }],
+              tradingCapabilities: { market: { whole: "TRADING_STATUS_TRADABLE" } },
+            }, {
+              tokenSymbol: "ZZZ",
+              tokenName: "No Price • Robinhood Token",
+              status: "ASSET_STATUS_ACTIVE",
+              deployments: [{ chainId: 4663, contractAddress: "0x2" }],
+              tradingCapabilities: { market: { whole: "TRADING_STATUS_TRADABLE" } },
+            }],
           };
         },
       };
     }
-    return { ok: true, async json() { return { total: 2, items: [] }; } };
+    if (String(url).includes("/rhj/prices")) {
+      return {
+        ok: true,
+        async json() {
+          return {
+            quotes: [{ tokenSymbol: "AAPL", bid: "100", ask: "101" }],
+          };
+        },
+      };
+    }
+    throw new Error(`unexpected url ${url}`);
   };
 
-  const payload = await fetchRobinhoodStocks(fetchImpl);
-  assert.equal(payload.total, 2);
+  const payload = await fetchBankrPairedStocks(fetchImpl);
+  assert.equal(payload.total, 1);
   assert.equal(payload.items[0].symbol, "AAPL");
-  assert.equal(payload.items[1].symbol, "ZZZ");
+  assert.equal(payload.source, "robinhood-rhj");
 });
 
-test("robinhood stocks endpoint proxies registry data", async (t) => {
-  const fetchImpl = async () => ({
-    ok: true,
-    async json() {
+test("bankr paired stocks endpoint proxies registry data", async (t) => {
+  const fetchImpl = async (url) => {
+    if (String(url).includes("/rhj/assets")) {
       return {
-        total: 1,
-        items: [{ symbol: "NVDA", name: "NVIDIA", address: "0xabc", isOfficialStock: true }],
+        ok: true,
+        async json() {
+          return {
+            assets: [{
+              tokenSymbol: "NVDA",
+              tokenName: "NVIDIA • Robinhood Token",
+              status: "ASSET_STATUS_ACTIVE",
+              deployments: [{ chainId: 4663, contractAddress: "0xd0601ce157db5bdc3162bbac2a2c8af5320d9eec" }],
+              tradingCapabilities: { market: { whole: "TRADING_STATUS_TRADABLE" } },
+            }],
+          };
+        },
       };
-    },
-  });
+    }
+    return { ok: true, async json() { return { quotes: [{ tokenSymbol: "NVDA", bid: "1", ask: "2" }] }; } };
+  };
 
   const server = createServer({ env: { EXECUTION_MODE: "disabled" }, fetchImpl });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
   t.after(() => server.close());
 
-  const response = await request(server, "/v1/robinhood/stocks");
+  const response = await request(server, "/v1/bankr/paired-stocks");
   assert.equal(response.status, 200);
   assert.equal(response.body.total, 1);
   assert.equal(response.body.items[0].symbol, "NVDA");
+  assert.equal(response.body.source, "robinhood-rhj");
 });

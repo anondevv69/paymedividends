@@ -8,9 +8,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,500;6..72,600;6..72,700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=launch-wizard-3" />
+    <link rel="stylesheet" href="/styles.css?v=launch-wizard-4" />
     <script>window.PAYMENTS_API_URL = __PUBLIC_API_URL__;</script>
-    <script type="module" src="/app.js?v=launch-wizard-3"></script>
+    <script type="module" src="/app.js?v=launch-wizard-4"></script>
   </head>
   <body>
     <div class="grain" aria-hidden="true"></div>
@@ -111,7 +111,7 @@
                 <label>Token symbol<input id="token-symbol" name="tokenSymbol" value="MCT" maxlength="12" autocomplete="off" required /></label>
               </div>
               <label>Paired stock (optional)<input id="paired-stock-search" list="paired-stock-list" placeholder="Search ticker, e.g. NVDA — NVIDIA" autocomplete="off" spellcheck="false" /><datalist id="paired-stock-list"></datalist></label>
-              <p class="field-note" id="paired-stock-status">Loading Robinhood stock list…</p>
+              <p class="field-note" id="paired-stock-status">Loading Bankr-compatible Robinhood stocks…</p>
               <label>Bankr user API key<input id="bankr-api-key" name="bankrApiKey" type="password" autocomplete="off" placeholder="bk_usr_…" spellcheck="false" /></label>
               <p class="field-note">Your Bankr key is sent directly to api.bankr.bot from this browser. Pay Me Dividends never stores it.</p>
               <label class="choice-inline"><input id="simulate-launch" type="checkbox" /> Dry run first (Bankr simulateOnly — no token deployed)</label>
