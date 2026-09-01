@@ -12,6 +12,8 @@
     "start:worker": "node app/worker.js",
     "test:app": "node --test app/**/*.test.js",
     "test": "npm run test:app && forge test"
+  },
+  "dependencies": {
+    "ethereum-cryptography": "^3.2.0"
   }
 }
-

@@ -121,6 +121,11 @@ contract PayoutVault {
     error ClaimExceedsReserve();
     error AccountingInvariantBroken();
 
+    constructor() {
+        // Protect the implementation. EIP-1167 clones initialize their own fresh storage once.
+        initialized = true;
+    }
+
     modifier onlyCreator() {
         if (msg.sender != creator) revert NotCreator();
         _;

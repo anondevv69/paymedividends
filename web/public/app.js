@@ -8,10 +8,8 @@ const programChoices = [...document.querySelectorAll('input[name="programType"]'
 const allocationChoices = [...document.querySelectorAll('input[name="allocation"]')];
 const treatmentChoices = [...document.querySelectorAll('input[name="treatment"]')];
 const fundingChoices = [...document.querySelectorAll('input[name="universalFunding"]')];
-const routeChoices = [...document.querySelectorAll('input[name="route"]')];
 const bankrOnly = [...document.querySelectorAll(".bankr-only")];
 const universalOnly = document.querySelector(".universal-only");
-const holderAllocation = document.querySelector(".holder-allocation");
 const advancedTreatment = document.querySelector(".advanced-treatment");
 const walletButton = document.querySelector("#wallet-button");
 const output = document.querySelector("#blueprint-output");
@@ -41,16 +39,6 @@ function isNewLaunch() {
   return state.programType === "newBankr";
 }
 
-function distributionRoute() {
-  return isUniversal() ? "universal" : selectedValue("route");
-}
-
-function routeAllocations() {
-  if (distributionRoute() === "direct") return { holders: 100, universal: 0 };
-  if (distributionRoute() === "universal") return { holders: 0, universal: 100 };
-  return { holders: 95, universal: 5 };
-}
-
 function displayPath() {
   if (isUniversal()) return "Join shared RWA index";
   return isNewLaunch() ? "Launch a Bankr token" : "Associate a Bankr token";
@@ -67,31 +55,23 @@ function refreshPreview() {
   const network = value("network") === "base" ? "Base" : "Robinhood Chain";
   const treatment = selectedValue("treatment");
   const asset = payoutAsset();
-  const route = distributionRoute();
-  const allocations = routeAllocations();
   const source = document.querySelector("#blueprint-source");
 
-  document.querySelector("#blueprint-token").textContent = route === "universal" ? `$${token} member` : `$${token}`;
+  document.querySelector("#blueprint-token").textContent = `$${token} member`;
   document.querySelector("#blueprint-vault").textContent = universal
     ? "UniversalRewardsHub"
     : isNewLaunch() ? "Prelaunch project router" : "Bound project router";
-  document.querySelector("#blueprint-asset").textContent = route === "universal"
-    ? `${asset} → RWA basket`
-    : route === "split" ? `${asset} claims + shared index` : `${asset} claims`;
+  document.querySelector("#blueprint-asset").textContent = `${asset} → shared RWA claims`;
   source.textContent = universal
     ? selectedValue("universalFunding") === "deposit" ? "approved direct deposit" : "Bankr feeRecipient"
     : "Bankr feeRecipient";
   document.querySelector("#blueprint-arrow").textContent = universal
     ? "approved funds → shared reward rounds"
-    : treatment === "swap" ? `fixed swap route → ${allocations.holders}% local · ${allocations.universal}% Hub`
-      : `${allocations.holders}% local · ${allocations.universal}% Hub`;
+    : treatment === "swap" ? "fixed audited swap → 95% shared rewards · 5% infrastructure"
+      : "95% shared rewards · 5% infrastructure";
   document.querySelector("#detail-network").textContent = network;
   document.querySelector("#detail-program").textContent = displayPath();
-  document.querySelector("#detail-entitlement").textContent = route === "universal"
-    ? "all enrolled member-token holders"
-    : route === "split" ? `${token} holders + shared-index members` : `${token} holders`;
-  document.querySelector("#holder-allocation-bps").textContent = `${allocations.holders.toFixed(2)}%`;
-  document.querySelector("#universal-allocation-bps").textContent = `${allocations.universal.toFixed(2)}%`;
+  document.querySelector("#detail-entitlement").textContent = "all enrolled member-token holders";
 }
 
 function switchProgramType(next) {
@@ -103,11 +83,6 @@ function switchProgramType(next) {
 
 function toggleAdvancedTreatment() {
   advancedTreatment.classList.toggle("hidden", selectedValue("treatment") !== "swap");
-  refreshPreview();
-}
-
-function updateRoutingFields() {
-  holderAllocation.classList.toggle("hidden", distributionRoute() === "universal");
   refreshPreview();
 }
 
@@ -151,10 +126,6 @@ fundingChoices.forEach((input) => input.addEventListener("change", () => {
   selectLabel(input);
   refreshPreview();
 }));
-routeChoices.forEach((input) => input.addEventListener("change", () => {
-  selectLabel(input);
-  updateRoutingFields();
-}));
 form.querySelectorAll("input, select").forEach((input) => input.addEventListener("input", refreshPreview));
 walletButton.addEventListener("click", connectWallet);
 
@@ -165,9 +136,7 @@ form.addEventListener("submit", (event) => {
   const chain = value("network") === "base" ? "Base (8453)" : "Robinhood Chain (4663)";
   const asset = payoutAsset();
   const treatment = selectedValue("treatment");
-  const route = distributionRoute();
-  const allocations = routeAllocations();
-  const recipient = route === "universal" ? "all enrolled member-token holders" : `${token} holders`;
+  const recipient = "all enrolled member-token holders";
   const currentAddress = address ? `It records ${shortAddress(address)} as the Bankr token. ` : "No Bankr token address is set yet. ";
   let sequence;
 
@@ -176,9 +145,9 @@ form.addEventListener("submit", (event) => {
       ? `Use an approved ${asset} deposit into the future UniversalRewardsHub; its shared RWA reward rounds benefit ${recipient}.`
       : `Set a dedicated Project Router as the Bankr fee recipient. Its approved RWA fees forward to the future UniversalRewardsHub and benefit ${recipient}.`;
   } else if (isNewLaunch()) {
-    sequence = `Create a prelaunch Project Router, launch the Bankr pair with that router as fee recipient, then bind the token address and Doppler pool ID that Bankr returns. ${treatment === "swap" ? `Creator-token fee conversion to ${asset} remains blocked pending an audited adapter.` : `Use quote-only fees for Bankr’s returned pair asset.`} The immutable route sends ${allocations.holders}% to ${recipient} and ${allocations.universal}% to the shared Hub.`;
+    sequence = `Create a factory Project Router, then launch through Bankr with that router as fee recipient and quoteOnlyFees enabled. Register and bind Bankr’s returned token, fee manager, paired asset, and Doppler pool ID only after API and onchain-event verification. Membership activates after a seven-day public admission delay. The Hub applies 5% for infrastructure and reserves 95% for ${recipient}. ${treatment === "swap" ? `Creator-token conversion to ${asset} remains unavailable pending a separately audited adapter.` : "The paired RWA routes directly without a swap."}`;
   } else {
-    sequence = `Create and bind a Project Router, then update the existing Bankr token’s fee recipient to that router if its fee beneficiary is still changeable. ${treatment === "swap" ? `Conversion to ${asset} remains blocked pending an audited adapter.` : `Bankr’s returned pair asset is routed without an extra protocol fee.`} The immutable route sends ${allocations.holders}% to ${recipient} and ${allocations.universal}% to the shared Hub.`;
+    sequence = `Create a factory Project Router, verify the existing Bankr pool, then irreversibly transfer its fee-beneficiary rights to the router. Membership activates after a seven-day public admission delay. The Hub applies 5% for infrastructure and reserves 95% for ${recipient}. ${treatment === "swap" ? `Conversion to ${asset} remains unavailable pending a separately audited adapter.` : "The paired RWA routes directly without a swap."}`;
   }
 
   document.querySelector("#blueprint-state").textContent = "Blueprint ready";
@@ -237,6 +206,5 @@ async function loadUniversalDirectory() {
 
 switchProgramType(state.programType);
 toggleAdvancedTreatment();
-updateRoutingFields();
 loadApiStatus();
 loadUniversalDirectory();

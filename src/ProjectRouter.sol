@@ -2,6 +2,7 @@
 pragma solidity 0.8.26;
 
 import {IERC20} from "./interfaces/IERC20.sol";
+import {IDopplerFeeManager} from "./interfaces/IDopplerFeeManager.sol";
 import {ISwapToSettlementAdapter} from "./interfaces/ISwapToSettlementAdapter.sol";
 import {IUniversalRewardsHub} from "./interfaces/IUniversalRewardsHub.sol";
 import {SafeTransferLib} from "./libraries/SafeTransferLib.sol";
@@ -30,6 +31,8 @@ contract ProjectRouter {
     address public projectAdmin;
     address public communityToken;
     address public memeAsset;
+    address public pairedAsset;
+    address public feeManager;
     address public memeLockbox;
     address public swapAdapter;
     bytes32 public dopplerPoolId;
@@ -42,11 +45,19 @@ contract ProjectRouter {
         address memeLockbox,
         address swapAdapter
     );
-    event LaunchBound(address indexed communityToken, address indexed memeAsset, bytes32 indexed dopplerPoolId);
+    event LaunchBound(
+        address indexed communityToken, address indexed pairedAsset, address indexed feeManager, bytes32 dopplerPoolId
+    );
+    event BankrDopplerFeesCollected(
+        address indexed feeManager, bytes32 indexed poolId, uint256 pairedAmountReceived, uint256 memeAmountReceived
+    );
     event ApprovedAssetRouted(address indexed asset, uint256 grossAmount, uint256 netAmount);
     event MemeAssetBurned(address indexed asset, uint256 amount);
     event MemeAssetLocked(address indexed asset, address indexed lockbox, uint256 amount);
-    event MemeAssetConvertedToSettlement(address indexed asset, uint256 amountIn, uint256 settlementAmountOut, uint256 hubNetAmount);
+    event UnexpectedMemeAssetHeld(address indexed asset, uint256 amount);
+    event MemeAssetConvertedToSettlement(
+        address indexed asset, uint256 amountIn, uint256 settlementAmountOut, uint256 hubNetAmount
+    );
 
     error AlreadyInitialized();
     error NotProjectAdmin();
@@ -111,23 +122,74 @@ contract ProjectRouter {
     }
 
     /// @notice One-time post-launch binding. The caller uses this router as Bankr's fee recipient at launch.
-    function bindBankrDopplerLaunch(address communityToken_, address memeAsset_, bytes32 dopplerPoolId_)
-        external
-        onlyProjectAdmin
-    {
+    function bindBankrDopplerLaunch(
+        address communityToken_,
+        address memeAsset_,
+        address pairedAsset_,
+        address feeManager_,
+        bytes32 dopplerPoolId_
+    ) external onlyProjectAdmin {
         if (poolBound) revert LaunchAlreadyBound();
-        if (communityToken_ == address(0) || memeAsset_ == address(0) || dopplerPoolId_ == bytes32(0)) {
+        if (
+            communityToken_ == address(0) || memeAsset_ == address(0) || pairedAsset_ == address(0)
+                || feeManager_ == address(0) || dopplerPoolId_ == bytes32(0)
+        ) {
             revert ZeroAddress();
         }
         // In this product, the Bankr meme token is also the member-token claim ticket.
-        if (communityToken_ != memeAsset_) revert InvalidConfiguration();
+        if (
+            communityToken_ != memeAsset_ || pairedAsset_ == memeAsset_ || feeManager_.code.length == 0
+                || !IUniversalRewardsHub(hub).isApprovedAsset(pairedAsset_)
+                || !IUniversalRewardsHub(hub).isApprovedFeeManager(feeManager_)
+        ) revert InvalidConfiguration();
+        if (
+            !IUniversalRewardsHub(hub).isApprovedPoolBinding(feeManager_, dopplerPoolId_, communityToken_, pairedAsset_)
+                || IDopplerFeeManager(feeManager_).getShares(dopplerPoolId_, address(this))
+                    < IUniversalRewardsHub(hub).minimumRouterFeeShare()
+        ) {
+            revert InvalidConfiguration();
+        }
 
         communityToken = communityToken_;
         memeAsset = memeAsset_;
+        pairedAsset = pairedAsset_;
+        feeManager = feeManager_;
         dopplerPoolId = dopplerPoolId_;
         poolBound = true;
 
-        emit LaunchBound(communityToken_, memeAsset_, dopplerPoolId_);
+        emit LaunchBound(communityToken_, pairedAsset_, feeManager_, dopplerPoolId_);
+    }
+
+    /// @notice Collects this router's Bankr/Doppler fee share and forwards its approved quote asset.
+    /// @dev Anyone can trigger collection. The fee manager pays only its configured beneficiary.
+    function collectAndRouteBankrDopplerFees(uint256 minimumSettlementOut)
+        external
+        whenPoolBound
+        nonReentrant
+        returns (uint256 pairedAmountReceived, uint256 memeAmountReceived, uint256 hubNetAmount)
+    {
+        uint256 pairedBefore = IERC20(pairedAsset).balanceOf(address(this));
+        uint256 memeBefore = IERC20(memeAsset).balanceOf(address(this));
+
+        IDopplerFeeManager(feeManager).collectFees(dopplerPoolId);
+
+        uint256 pairedAfter = IERC20(pairedAsset).balanceOf(address(this));
+        uint256 memeAfter = IERC20(memeAsset).balanceOf(address(this));
+        if (pairedAfter < pairedBefore || memeAfter < memeBefore) revert InvalidAsset();
+        pairedAmountReceived = pairedAfter - pairedBefore;
+        memeAmountReceived = memeAfter - memeBefore;
+        if (pairedAmountReceived == 0 && memeAmountReceived == 0) revert InvalidAsset();
+
+        if (pairedAfter != 0) hubNetAmount = _routeApprovedAsset(pairedAsset, pairedAfter);
+        if (memeAfter != 0) {
+            if (memeAssetPolicy == MemeAssetPolicy.QuoteOnly) {
+                emit UnexpectedMemeAssetHeld(memeAsset, memeAfter);
+            } else {
+                _processMemeAsset(memeAfter, minimumSettlementOut);
+            }
+        }
+
+        emit BankrDopplerFeesCollected(feeManager, dopplerPoolId, pairedAmountReceived, memeAmountReceived);
     }
 
     /// @notice Routes a received approved RWA/quote asset into the Hub.
@@ -136,12 +198,7 @@ contract ProjectRouter {
         if (!IUniversalRewardsHub(hub).isApprovedAsset(asset) || asset == memeAsset) revert InvalidAsset();
         uint256 grossAmount = IERC20(asset).balanceOf(address(this));
         if (grossAmount == 0) revert InvalidAsset();
-
-        asset.forceApprove(hub, grossAmount);
-        netAmount = IUniversalRewardsHub(hub).deposit(asset, grossAmount);
-        asset.forceApprove(hub, 0);
-
-        emit ApprovedAssetRouted(asset, grossAmount, netAmount);
+        netAmount = _routeApprovedAsset(asset, grossAmount);
     }
 
     /// @notice Applies the fixed policy to a received Bankr meme-token fee balance.
@@ -156,6 +213,21 @@ contract ProjectRouter {
         uint256 amountIn = IERC20(memeAsset).balanceOf(address(this));
         if (amountIn == 0) revert InvalidAsset();
 
+        return _processMemeAsset(amountIn, minimumSettlementOut);
+    }
+
+    function _routeApprovedAsset(address asset, uint256 grossAmount) private returns (uint256 netAmount) {
+        asset.forceApprove(hub, grossAmount);
+        netAmount = IUniversalRewardsHub(hub).deposit(asset, grossAmount);
+        asset.forceApprove(hub, 0);
+
+        emit ApprovedAssetRouted(asset, grossAmount, netAmount);
+    }
+
+    function _processMemeAsset(uint256 amountIn, uint256 minimumSettlementOut)
+        private
+        returns (uint256 settlementAmountOut, uint256 hubNetAmount)
+    {
         if (memeAssetPolicy == MemeAssetPolicy.QuoteOnly) revert InvalidPolicy();
         if (memeAssetPolicy == MemeAssetPolicy.Burn) {
             memeAsset.safeTransfer(BURN_ADDRESS, amountIn);
@@ -172,9 +244,8 @@ contract ProjectRouter {
         address settlement = IUniversalRewardsHub(hub).settlementAsset();
         uint256 balanceBefore = IERC20(settlement).balanceOf(address(this));
         memeAsset.forceApprove(swapAdapter, amountIn);
-        ISwapToSettlementAdapter(swapAdapter).swapToSettlement(
-            memeAsset, settlement, amountIn, minimumSettlementOut, address(this)
-        );
+        ISwapToSettlementAdapter(swapAdapter)
+            .swapToSettlement(memeAsset, settlement, amountIn, minimumSettlementOut, address(this));
         memeAsset.forceApprove(swapAdapter, 0);
 
         uint256 balanceAfter = IERC20(settlement).balanceOf(address(this));

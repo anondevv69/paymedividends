@@ -14,6 +14,12 @@ export function platformConfig(env = process.env) {
     universalRewardsHub: env.UNIVERSAL_REWARDS_HUB ?? env.UNIVERSAL_REVENUE_VAULT ?? null,
     databaseConfigured: Boolean(env.DATABASE_URL),
     queueConfigured: Boolean(env.REDIS_URL),
+    manifestDir: env.MANIFEST_DIR ?? null,
+    workerPollIntervalMs: Math.max(Number.parseInt(env.WORKER_POLL_INTERVAL_MS ?? "1800000", 10), 30_000),
+    rewardRoundIntervalMs: Math.max(
+      Number.parseInt(env.REWARD_ROUND_INTERVAL_MS ?? String(60 * 60 * 1000), 10),
+      30_000,
+    ),
   });
 }
 
