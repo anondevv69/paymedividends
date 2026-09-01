@@ -3,14 +3,14 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Set up transparent, token-holder payout programs." />
-    <title>Pay Me Dividends — Payout infrastructure for token communities</title>
+    <meta name="description" content="Create a Project Router and route Bankr fees into shared RWA holder rewards." />
+    <title>Pay Me Dividends — Project Router for Bankr communities</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,500;6..72,600;6..72,700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=bankr-flow-1" />
+    <link rel="stylesheet" href="/styles.css?v=create-router-2" />
     <script>window.PAYMENTS_API_URL = __PUBLIC_API_URL__;</script>
-    <script type="module" src="/app.js?v=bankr-flow-1"></script>
+    <script type="module" src="/app.js?v=create-router-2"></script>
   </head>
   <body>
     <div class="grain" aria-hidden="true"></div>
@@ -19,23 +19,23 @@
       <nav aria-label="Primary navigation">
         <a href="#how-it-works">How it works</a>
         <a href="#protocol">Protocol</a>
-        <a href="#test-lab">Test lab</a>
+        <a href="#test-lab">Create router</a>
       </nav>
       <button class="wallet-button" id="wallet-button" type="button">Connect wallet <span>↗</span></button>
     </header>
 
     <main id="top">
       <section class="hero section-shell">
-        <div class="eyebrow"><span class="pulse"></span> Payout infrastructure · test environment</div>
+        <div class="eyebrow"><span class="pulse"></span> Robinhood Chain · shared RWA rewards</div>
         <h1>Let a token<br />pay its <em>holders.</em></h1>
-        <p class="hero-copy">Configure an isolated Project Router for one token, or enroll it in a tokenless shared RWA rewards Hub. Test the full flow before anything touches mainnet.</p>
+        <p class="hero-copy">Create a Project Router in one click. Paste that address into Bankr as the fee recipient. After launch, holders share approved RWA rewards through the Hub.</p>
         <div class="hero-actions">
-          <a class="button button-primary" href="#test-lab">Build a test program <span>↓</span></a>
+          <a class="button button-primary" href="#test-lab">Create a Project Router <span>↓</span></a>
           <a class="button button-quiet" href="#how-it-works">See the mechanics <span>↘</span></a>
         </div>
-        <div class="hero-stats" aria-label="Platform test environment status">
-          <div><strong>05.00%</strong><span>target Hub infrastructure fee</span></div>
-          <div><strong>0</strong><span>live contracts deployed</span></div>
+        <div class="hero-stats" aria-label="Platform status">
+          <div><strong>05.00%</strong><span>Hub infrastructure fee</span></div>
+          <div><strong id="contracts-live">Live</strong><span>factory + Hub on Robinhood</span></div>
           <div><strong id="api-status">Checking</strong><span>control plane</span></div>
         </div>
       </section>
@@ -46,151 +46,114 @@
 
       <section class="section-shell how" id="how-it-works">
         <div class="section-kicker">01 / The model</div>
-        <div class="section-heading split-heading"><h2>Three Bankr paths.<br /><em>One clear ledger.</em></h2><p>Bankr/Doppler is the launch and fee source. Every asset, fee, snapshot, and claim round should be inspectable.</p></div>
+        <div class="section-heading split-heading"><h2>Three simple<br /><em>steps.</em></h2><p>Users never need to understand factory internals. They get an address, point Bankr fees there, and holders claim later.</p></div>
         <div class="path-grid">
           <article class="path-card lime-card">
-            <span class="card-number">A</span>
-            <h3>Launch a<br />member token</h3>
-            <p>Create a Project Router first, then use it as the Bankr fee recipient when launching a new token.</p>
-            <ol><li>Router address is created</li><li>Bankr launches the paired token</li><li>Pool details bind to the router</li></ol>
+            <span class="card-number">01</span>
+            <h3>Create a<br />Project Router</h3>
+            <p>One click from this site. Your wallet becomes the router admin.</p>
+            <ol><li>Connect wallet</li><li>Confirm the create tx</li><li>Copy the router address</li></ol>
           </article>
           <article class="path-card dark-card">
-            <span class="card-number">B</span>
-            <h3>Connect an<br />existing token</h3>
-            <p>An existing Bankr token changes its fee recipient to a dedicated Project Router.</p>
-            <ol><li>Confirm token and Doppler pool</li><li>Set fee recipient to the router</li><li>Verify member-token status</li></ol>
+            <span class="card-number">02</span>
+            <h3>Point Bankr<br />fees here</h3>
+            <p>Paste the router address as Bankr’s fee recipient on launch or beneficiary update.</p>
+            <ol><li>Open Bankr</li><li>Paste router address</li><li>Launch or retarget fees</li></ol>
           </article>
           <article class="path-card dark-card">
-            <span class="card-number">C</span>
-            <h3>Shared RWA<br />index</h3>
-            <p>Member tokens funnel approved assets into a tokenless shared rewards connector.</p>
-            <ol><li>Partner fees arrive as approved assets</li><li>Hub reserves multi-RWA rounds</li><li>All member-token holders claim</li></ol>
+            <span class="card-number">03</span>
+            <h3>Holders claim<br />shared RWAs</h3>
+            <p>After enrollment, approved fees enter the Hub and member-token holders claim.</p>
+            <ol><li>Pool is verified</li><li>Membership activates</li><li>Hourly snapshots / claims</li></ol>
           </article>
         </div>
       </section>
 
       <section class="protocol-section" id="protocol">
         <div class="section-shell">
-          <div class="section-kicker">02 / What gets deployed</div>
-          <div class="section-heading"><h2>Small contracts.<br /><em>Hard boundaries.</em></h2></div>
+          <div class="section-kicker">02 / Live contracts</div>
+          <div class="section-heading"><h2>Factory + Hub<br /><em>are live.</em></h2></div>
           <div class="contract-list">
-            <div class="contract-row"><span class="contract-index">01</span><div><h3>ProjectRouterFactory</h3><p>Creates a low-cost isolated Project Router for every Bankr token that enrolls. Each router handles its own dual-asset fee stream.</p></div><span class="contract-state">V2 deploy first</span></div>
-            <div class="contract-row"><span class="contract-index">02</span><div><h3>UniversalRewardsHub</h3><p>Tokenless connector bound to the official factory, verified Bankr pools, delayed membership, transparent infrastructure funding, and multi-asset Merkle claim rounds.</p></div><span class="contract-state">V2 deploy second</span></div>
-            <div class="contract-row"><span class="contract-index">03</span><div><h3>ProjectRouter</h3><p>Receives Bankr/Doppler fees, forwards approved RWA assets to the Hub, and applies its immutable meme-token policy.</p></div><span class="contract-state">Factory clone</span></div>
-            <div class="contract-row"><span class="contract-index">04</span><div><h3>Venue swap adapter</h3><p>Optional advanced treatment for creator-token fees: a fixed, audited route with TWAP/slippage limits. It never exposes arbitrary router calls.</p></div><span class="contract-state">After fork test</span></div>
+            <div class="contract-row"><span class="contract-index">01</span><div><h3>ProjectRouterFactory</h3><p>Creates one Project Router per Bankr token. Each router is that token’s fee recipient.</p></div><span class="contract-state" id="factory-state">Live</span></div>
+            <div class="contract-row"><span class="contract-index">02</span><div><h3>UniversalRewardsHub</h3><p>Shared accounting for approved RWA fees, equal-slice rounds, and Merkle claims.</p></div><span class="contract-state" id="hub-state">Live</span></div>
+            <div class="contract-row"><span class="contract-index">03</span><div><h3>ProjectRouter</h3><p>Created below for each community. Receives Bankr fees and forwards approved assets into the Hub.</p></div><span class="contract-state">Create below</span></div>
           </div>
         </div>
       </section>
 
       <section class="lab section-shell" id="test-lab">
-        <div class="section-kicker">03 / Test lab</div>
-        <div class="section-heading split-heading"><h2>Map a Bankr flow.<br /><em>Without launching one.</em></h2><p>Configure a Bankr/Doppler test program locally. This preview never asks for token approvals, moves money, or sends a transaction.</p></div>
+        <div class="section-kicker">03 / Create your fee router</div>
+        <div class="section-heading split-heading"><h2>One click.<br /><em>One address.</em></h2><p>Create a Project Router, copy it, and paste it into Bankr as the fee recipient. That is the whole first step.</p></div>
         <div class="lab-grid">
           <form class="builder" id="program-form">
-            <div class="builder-head"><span>Configuration</span><strong>Test mode</strong></div>
+            <div class="builder-head"><span>Setup</span><strong id="setup-mode">Robinhood live</strong></div>
             <fieldset>
-              <legend>1. Bankr funding path</legend>
+              <legend>1. What are you doing?</legend>
               <div class="choice-grid choice-grid-three">
-                <label class="choice selected"><input type="radio" name="programType" value="newBankr" checked /><span><b>Launch a Bankr token</b><small>Create it with a Project Router as fee recipient</small></span></label>
-                <label class="choice"><input type="radio" name="programType" value="existingBankr" /><span><b>Associate a Bankr token</b><small>Point an existing token’s fees to a Project Router</small></span></label>
-                <label class="choice"><input type="radio" name="programType" value="universal" /><span><b>Join shared RWA index</b><small>Enroll through a Project Router into the tokenless Hub</small></span></label>
+                <label class="choice selected"><input type="radio" name="programType" value="newBankr" checked /><span><b>Launch a Bankr token</b><small>Create a router first, then use it as fee recipient</small></span></label>
+                <label class="choice"><input type="radio" name="programType" value="existingBankr" /><span><b>Existing Bankr token</b><small>Create a router, then point fees to it</small></span></label>
+                <label class="choice"><input type="radio" name="programType" value="universal" /><span><b>Shared RWA index</b><small>Same router path into the Hub</small></span></label>
               </div>
             </fieldset>
             <fieldset>
-              <legend>2. Bankr token details</legend>
+              <legend>2. Optional label</legend>
               <div class="field-row">
-                <label>Bankr network<select id="network" name="network"><option value="robinhood">Robinhood Chain</option><option value="base">Base</option></select></label>
+                <label>Network<input id="network" name="network" value="Robinhood Chain" readonly /></label>
                 <label>Token symbol<input id="token-symbol" name="tokenSymbol" value="TEST" maxlength="12" autocomplete="off" /></label>
               </div>
-              <label>Bankr token address <input id="token-address" name="tokenAddress" placeholder="0x… (returned by Bankr after launch)" autocomplete="off" /></label>
-            </fieldset>
-            <fieldset class="bankr-only">
-              <legend>3. Bankr pair and fee treatment</legend>
-              <div class="field-row">
-                <div class="bankr-pair-readout"><span>Bankr paired / fee asset</span><strong id="paired-asset">Returned by Bankr</strong><small>Loaded after a Bankr launch simulation or an existing-pool lookup.</small></div>
-                <label>Cadence<input id="cadence" name="cadence" value="Hourly" readonly /></label>
-              </div>
-              <p class="field-note">This is intentionally not a hardcoded list. Bankr determines the valid pair options for the selected network and returns the actual quote asset, token address, and Doppler pool ID.</p>
-              <div class="choice-grid single-line">
-                <label class="choice selected"><input type="radio" name="treatment" value="quoteOnly" checked /><span><b>Distribute Bankr pair</b><small>Use quote-only fees; holders receive Bankr’s returned pair asset</small></span></label>
-                <label class="choice"><input type="radio" name="treatment" value="swap" /><span><b>Swap creator-token fees</b><small>Advanced: convert through an audited fixed route</small></span></label>
-              </div>
-              <div class="advanced-treatment hidden">
-                <label>Approved payout target<select id="payout-target" name="payoutTarget"><option value="MSFT">$MSFT</option><option value="NVDA">$NVDA</option><option value="WETH">WETH</option></select></label>
-                <p class="field-note">This path remains unavailable until the chain-specific adapter, liquidity, and slippage protections have been fork-tested and audited.</p>
-              </div>
-            </fieldset>
-            <fieldset class="bankr-only">
-              <legend>4. Revenue destination</legend>
-              <div class="choice-grid single-line">
-                <label class="choice selected"><input type="radio" name="route" value="universal" checked /><span><b>Universal member</b><small>Verified Bankr paired-token fees enter the shared RWA index</small></span></label>
-              </div>
-              <p class="field-note">Production v2 routes approved paired/RWA fees to the shared Hub. Independent and hybrid local-vault splits are not offered until separate contracts implement them.</p>
-            </fieldset>
-            <fieldset class="bankr-only holder-allocation">
-              <legend>5. Holder allocation</legend>
-              <div class="choice-grid single-line">
-                <label class="choice selected"><input type="radio" name="allocation" value="Pro-rata" checked /><span><b>Pro-rata</b><small>Public block snapshot, community-signed manifest, and 24-hour veto window</small></span></label>
-              </div>
-            </fieldset>
-            <fieldset class="universal-only hidden">
-              <legend>3. Shared-index contribution</legend>
-              <div class="field-row">
-                <label>Contribution asset<select id="contribution-asset" name="contributionAsset"><option value="WETH">WETH</option><option value="USDC">USDC</option><option value="approved RWA">Approved RWA</option></select></label>
-                <label>Attribution<input id="partner-name" name="partnerName" placeholder="Optional partner name" maxlength="30" /></label>
-              </div>
-              <div class="choice-grid single-line">
-                <label class="choice selected"><input type="radio" name="universalFunding" value="feeRecipient" checked /><span><b>Set fee recipient</b><small>Bankr fees route through a Project Router</small></span></label>
-                <label class="choice"><input type="radio" name="universalFunding" value="deposit" /><span><b>Send approved assets</b><small>Direct WETH/RWA contribution</small></span></label>
-              </div>
-              <p class="field-note">The contributor funds the tokenless Hub. Holders of every verified enrolled member token are eligible for its shared RWA reward rounds.</p>
+              <p class="field-note">You do not need the token address yet. Create the router first. Bankr returns the token, pair, and pool ID after launch.</p>
             </fieldset>
             <fieldset>
-              <legend>6. Routing summary</legend>
+              <legend>3. What happens next</legend>
+              <ol class="step-list">
+                <li><span>01</span><p>This site asks your wallet to create a Project Router.</p></li>
+                <li><span>02</span><p>You copy the router address and set it as Bankr’s fee recipient.</p></li>
+                <li><span>03</span><p>After the token exists, governance binds and enrolls it into the Hub.</p></li>
+              </ol>
               <div class="fee-preview"><span>Shared community rewards</span><strong>95.00%</strong><span>Infrastructure treasury</span><strong>05.00%</strong></div>
             </fieldset>
-            <button class="button button-primary build-button" type="submit">Create test blueprint <span>→</span></button>
-            <p class="form-safety">No wallet action occurs from this form.</p>
+            <button class="button button-primary build-button" id="create-router-button" type="submit">Create Project Router <span>→</span></button>
+            <p class="form-safety">Your wallet pays a small gas fee on Robinhood Chain. The connected wallet becomes the router admin.</p>
           </form>
 
           <aside class="blueprint" aria-live="polite">
-            <div class="builder-head"><span>Blueprint</span><strong id="blueprint-state">Waiting</strong></div>
-            <div class="blueprint-visual"><div class="node node-token" id="blueprint-token">$TEST member</div><span id="blueprint-source">Bankr feeRecipient</span><div class="node node-vault" id="blueprint-vault">Prelaunch project router</div><span id="blueprint-arrow">95% shared rewards · 5% infrastructure</span><div class="node node-asset" id="blueprint-asset">RWA shared claims</div></div>
+            <div class="builder-head"><span>Your router</span><strong id="blueprint-state">Ready</strong></div>
+            <div class="blueprint-visual">
+              <div class="node node-token" id="blueprint-token">$TEST community</div>
+              <span id="blueprint-source">Bankr fee recipient</span>
+              <div class="node node-vault" id="blueprint-vault">Create your Project Router</div>
+              <span id="blueprint-arrow">95% shared rewards · 5% infrastructure</span>
+              <div class="node node-asset" id="blueprint-asset">Hub RWA claims</div>
+            </div>
+            <div class="router-result hidden" id="router-result">
+              <span class="card-label">Paste this into Bankr as fee recipient</span>
+              <code id="router-address"></code>
+              <div class="router-actions">
+                <button class="button button-primary" id="copy-router" type="button">Copy address</button>
+                <a class="button button-quiet" id="router-explorer" href="#" target="_blank" rel="noreferrer">View on explorer</a>
+              </div>
+            </div>
             <dl class="blueprint-details">
               <div><dt>Network</dt><dd id="detail-network">Robinhood Chain</dd></div>
-              <div><dt>Funding path</dt><dd id="detail-program">New Bankr token</dd></div>
-              <div><dt>Entitlement</dt><dd id="detail-entitlement">All enrolled member-token holders</dd></div>
-              <div><dt>Contract status</dt><dd class="pending" id="detail-contract">Not deployed</dd></div>
+              <div><dt>Path</dt><dd id="detail-program">Launch a Bankr token</dd></div>
+              <div><dt>Factory</dt><dd id="detail-factory">Loading…</dd></div>
+              <div><dt>Hub</dt><dd id="detail-hub">Loading…</dd></div>
             </dl>
-            <div class="blueprint-output" id="blueprint-output">Choose whether to launch a Bankr member token, associate an existing one, or join the shared index. When v2 contracts are deployed, this screen will generate the exact router transaction and Bankr fee-recipient instructions.</div>
+            <div class="blueprint-output" id="blueprint-output">Connect a wallet and create a Project Router. Then copy the address into Bankr as the fee recipient for your token.</div>
           </aside>
         </div>
       </section>
 
-      <section class="dashboard-section section-shell">
-        <div class="dashboard-top"><div><div class="section-kicker">Example / after deployment</div><h2>Project dashboard</h2></div><span class="demo-tag">Demo data</span></div>
-        <div class="dashboard-grid">
-          <article class="dashboard-card main-card"><div class="card-label">TEST / $NVDA program</div><strong>0.0000 <small>$NVDA</small></strong><p>Reserved for holders in the next payout round.</p><div class="progress"><span style="width: 0%"></span></div><div class="card-foot"><span>Minimum round: 1.00 $NVDA</span><span>Next check: not scheduled</span></div></article>
-          <article class="dashboard-card"><div class="card-label">Last round</div><strong>—</strong><p>No public holder manifest has been signed by the snapshot operator.</p></article>
-          <article class="dashboard-card"><div class="card-label">Claims paid</div><strong>0</strong><p>Funds remain untouched until an audited deployment.</p></article>
-        </div>
-      </section>
-
       <section class="universal-directory section-shell" id="universal-directory">
-        <div class="dashboard-top"><div><div class="section-kicker">Shared RWA index / verified onchain</div><h2>Member tokens</h2></div><span class="demo-tag" id="universal-phase">Checking</span></div>
+        <div class="dashboard-top"><div><div class="section-kicker">Shared RWA index</div><h2>Member tokens</h2></div><span class="demo-tag" id="universal-phase">Checking</span></div>
         <div class="directory-grid">
-          <article class="directory-card directory-status"><span class="card-label">UniversalRewardsHub</span><strong id="universal-vault">Not deployed</strong><p id="universal-verification">Checking the control plane for the Hub configuration.</p></article>
-          <article class="directory-card"><span class="card-label">Verified member tokens</span><strong id="universal-count">0</strong><p>Only tokens whose live Bankr fee recipient resolves to an enrolled Project Router appear here.</p></article>
+          <article class="directory-card directory-status"><span class="card-label">UniversalRewardsHub</span><strong id="universal-vault">Loading…</strong><p id="universal-verification">Checking the control plane.</p></article>
+          <article class="directory-card"><span class="card-label">Verified member tokens</span><strong id="universal-count">0</strong><p>Only tokens whose Bankr fee recipient is an enrolled Project Router appear here.</p></article>
         </div>
-        <div class="contributor-list" id="contributor-list" aria-live="polite"><div class="empty-contributors"><span>NO VERIFIED MEMBER TOKENS YET</span><p>After the Hub and Project Router Factory are deployed, this list will show every Bankr token with a verifiably enrolled router—never a self-reported or unverified token.</p></div></div>
-      </section>
-
-      <section class="safety section-shell">
-        <div><div class="section-kicker">Before mainnet</div><h2>Test every<br /><em>assumption.</em></h2></div>
-        <ol><li><span>01</span><p>Deploy the factory to a test chain or fork with a multisig treasury and a disabled keeper.</p></li><li><span>02</span><p>Fork-test Bankr/Doppler fee collection against a real known pool—without real funds.</p></li><li><span>03</span><p>Run public holder-snapshot manifests, fuzz/invariant tests, and an independent audit.</p></li><li><span>04</span><p>Only then enable a limited, monitored keeper for live rounds.</p></li></ol>
+        <div class="contributor-list" id="contributor-list" aria-live="polite"><div class="empty-contributors"><span>NO VERIFIED MEMBER TOKENS YET</span><p>Create a router, point Bankr fees to it, then wait for Safe enrollment. Verified members show up here after indexing.</p></div></div>
       </section>
     </main>
 
-    <footer><span>© 2026 Pay Me Dividends</span><span>Test environment · No live payout execution</span><a href="https://paymedividends-production.up.railway.app/v1/platform" target="_blank" rel="noreferrer">API status ↗</a></footer>
+    <footer><span>© 2026 Pay Me Dividends</span><span>Execution mode disabled · create routers live</span><a href="https://api.paymedividends.xyz/v1/platform" target="_blank" rel="noreferrer">API status ↗</a></footer>
   </body>
 </html>

@@ -88,7 +88,15 @@ select { appearance:none; background-image:linear-gradient(45deg, transparent 50
 .fee-preview strong { color:var(--lime); font-weight:500; }
 .build-button { width:100%; justify-content:space-between; margin-top:23px; cursor:pointer; }
 .form-safety,.field-note { color:#83947d; margin:12px 0 0; font:10px/1.5 var(--mono); }
-.hidden { display:none; }
+.step-list { margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:10px; }
+.step-list li { display:grid; grid-template-columns:42px 1fr; gap:10px; align-items:start; }
+.step-list span { color:var(--lime); font:500 12px var(--mono); }
+.step-list p { margin:0; color:#b8c5b1; font-size:13px; line-height:1.45; }
+.router-result { margin-top:18px; padding:16px; border:1px solid rgba(212,255,55,.45); background:#0d150c; display:flex; flex-direction:column; gap:12px; }
+.router-result code { display:block; overflow-wrap:anywhere; color:var(--lime); font:500 13px/1.4 var(--mono); }
+.router-actions { display:flex; gap:10px; flex-wrap:wrap; }
+.router-actions .button { cursor:pointer; }
+.build-button:disabled { opacity:.55; cursor:wait; }
 .advanced-treatment { margin-top:10px; }
 .blueprint { padding:24px; display:flex; flex-direction:column; }
 .blueprint-visual { flex:1; min-height:310px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:10px; background:radial-gradient(circle at 50% 38%,rgba(212,255,55,.11),transparent 33%); }
