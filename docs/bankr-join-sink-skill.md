@@ -46,8 +46,25 @@ Doppler pool (DEVS / MSFT)
 
 - **Quoted / paired asset** = the tokenized stock or RWA on the other side of the pool (MSFT, NVDA, …). These are approved Hub assets when governance enables them. They never get swapped to SPY or to another RWA.
 - **Meme / community token** = the launched community token (DEVS, …). These are **not** Hub assets by themselves; they must convert to the pool’s paired RWA before deposit.
-- **SPY** = separate Hub settlement asset used by other ecosystems. Stock-paired pools like DEVS/MSFT reward holders in **MSFT**, not SPY.
+- **SPY** = Hub’s default `settlementAsset` for *other* ecosystems — **not** the reward token for DEVS/MSFT. Never tell users “DEVS → SPY.” Always say “DEVS → **MSFT**” for that pool.
 - **WETH-only pools** = **not eligible** for this skill. Require a stock/RWA quote leg.
+
+### Manual fee claim vs holder sink
+
+| Mode | Beneficiary | What user sees on “claim” |
+|---|---|---|
+| **Not in sink yet** | Creator wallet | Raw **DEVS + MSFT** in wallet (Doppler split) — **no auto-conversion** |
+| **In sink** | Project Router | Keeper collects; MSFT → Hub; DEVS → swap → MSFT → Hub |
+
+If a user says “when I claim I get DEVS and MSFT,” acknowledge that is normal **before** retarget. After sink setup, fees no longer land as raw tokens in their wallet.
+
+### Three “claims” (do not mix up)
+
+1. **Creator fee claim** — Doppler/Bankr UI → beneficiary wallet gets DEVS + MSFT
+2. **Fee collect & route** — `ProjectRouter.collectAndRouteBankrDopplerFees` → keeper (not the bot)
+3. **Holder dividend claim** — `UniversalRewardsHub.claim()` → holders receive MSFT after enrollment + round (no public UI yet)
+
+The router has **collection/routing**, not holder **claim**. Holder claims live on the Hub.
 
 ### Router policies (what happens to the meme leg)
 
@@ -233,6 +250,26 @@ Bot:
   POST /v1/enrollment-requests after verify (same body as site wizard)
 ```
 
+### If user mentions manual claim (DEVS + MSFT in wallet)
+
+```
+User: When I claim fees I get DEVS and MSFT — does DEVS become SPY?
+
+Bot:
+  "That's normal today: manual Doppler claims pay the fee split straight to your wallet —
+   DEVS and MSFT, unchanged.
+
+   Joining the holder sink retargets fees to a SwapToSettlement router instead of your wallet.
+   After that, our keeper collects hourly:
+   • MSFT fees → Hub (direct)
+   • DEVS fees → swapped to MSFT on the DEVS/MSFT pool → Hub
+
+   DEVS does **not** convert to SPY. Holders earn **MSFT** in the MSFT ecosystem pool.
+
+   The router handles fee **collection/routing**, not holder **claims**. After governance
+   enrolls DEVS and starts a round, holders claim MSFT from the Hub via Merkle proofs."
+```
+
 ## What the bot must NOT do
 
 - Create a router for a token where the user is **not** the current fee beneficiary
@@ -240,6 +277,8 @@ Bot:
 - Store Bankr API keys server-side for the launch wizard (browser-only rule stays)
 - Quote or execute meme→RWA swaps (the Pay Me Dividends keeper handles Doppler pool quotes)
 - Route tokenized stocks through SPY
+- Say manual wallet claims auto-convert DEVS to SPY or paired RWA (raw split until retarget)
+- Confuse beneficiary fee claim (wallet) with holder Hub.claim (Merkle dividends)
 
 ## New token launches
 
