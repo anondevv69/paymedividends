@@ -20,6 +20,25 @@ Filter beneficiary list: `chain === "robinhood"`, share ≥ 95%, quote leg is st
 
 Both legs are paid on every `collectFees`. Traders paying fees in either direction produce a **split** of meme + RWA tokens to the beneficiary (the router after retarget).
 
+## Manual claim vs sink routing
+
+| Stage | Beneficiary | On claim / collect |
+|---|---|---|
+| **Before sink** | Creator wallet | Bankr/Doppler “claim fees” → wallet receives **DEVS + MSFT** unchanged |
+| **After sink** | Project Router | Keeper `collectAndRouteBankrDopplerFees` → MSFT direct to Hub; DEVS swapped to **MSFT** (not SPY) then Hub |
+
+Users describing “I claim and get DEVS and MSFT” are on the **before sink** path. Joining the sink **retargets** the beneficiary to the router and stops raw meme tokens from landing in the wallet.
+
+## Three “claims” (different systems)
+
+| Claim type | Contract / UI | Actor | Pays out |
+|---|---|---|---|
+| Creator fee claim | Doppler fee manager / Bankr | Fee beneficiary wallet | DEVS + MSFT split |
+| Fee collect & route | `ProjectRouter.collectAndRouteBankrDopplerFees` | Keeper worker | Hub deposit (MSFT for DEVS pool) |
+| Holder dividend | `UniversalRewardsHub.claim(roundId, …)` | Token holders | Paired RWA (MSFT) via Merkle proof |
+
+Router = fee routing only. Hub = holder dividends. No holder `claim()` on ProjectRouter.
+
 ### What is *not* swapped
 
 - Tokenized stocks (MSFT, NVDA, …) — already the reward asset; deposit directly

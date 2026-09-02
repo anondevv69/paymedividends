@@ -42,8 +42,37 @@ Pool DEVS/MSFT  →  collect  →  Router
 
 - **Quoted token** = paired RWA/stock (MSFT). Approved by governance. Never swapped to SPY.
 - **Meme token** = community token (DEVS). Swapped to paired RWA only.
-- **SPY** = unrelated settlement asset for other Hub pools; not used for DEVS/MSFT rewards.
+- **SPY** = Hub’s default settlement asset for *other* ecosystems. **Never** the reward asset for stock-paired pools like DEVS/MSFT. Do not tell users “DEVS converts to SPY.”
 - **WETH pairs** = ineligible for this skill.
+
+## Manual fee claim vs holder sink (critical)
+
+Users often say: *“When I claim fees I get DEVS and MSFT.”* That is **correct today** if they have **not** joined the sink yet.
+
+| Mode | Who receives fees | What lands |
+|---|---|---|
+| **Manual claim (today)** | Beneficiary **wallet** (Bankr/Doppler claim UI) | Raw **DEVS + MSFT split** — nothing auto-converts |
+| **Holder sink (after retarget)** | **Project Router** (≥95% beneficiary) | MSFT → Hub direct; DEVS → swap → **MSFT** → Hub |
+
+After retarget, the beneficiary wallet **stops** receiving raw fee tokens. The keeper collects via `collectAndRouteBankrDopplerFees` and routes everything into the Hub as **paired RWA only** (MSFT for DEVS/MSFT).
+
+**Meme leg never becomes SPY.** `swapToSettlement` on the router means “swap meme → `pairedAsset`” (MSFT), not Hub `settlementAsset` (SPY).
+
+When explaining conversion, always name the **pool’s paired stock**: “DEVS fees become **MSFT** for holders,” not “settlement” or “SPY.”
+
+## Three different “claims” (do not conflate)
+
+| # | Action | Where | Who | Result |
+|---|---|---|---|---|
+| 1 | **Claim creator fees to wallet** | Doppler fee manager / Bankr claim UI | Fee beneficiary | DEVS + MSFT in wallet (manual split) |
+| 2 | **Collect & route fees** | `ProjectRouter.collectAndRouteBankrDopplerFees` | Pay Me Dividends keeper (hourly) | Split pulled to router → MSFT direct + DEVS→MSFT → Hub |
+| 3 | **Claim holder dividends** | `UniversalRewardsHub.claim(...)` (Merkle proof) | DEVS **holders** | **MSFT** from Hub after enrollment + governance round |
+
+- The **router** has fee **collection/routing**, not holder **claim**.
+- Holder claims are on the **Hub**, after governance enrolls the token and starts an MSFT payout round.
+- Public claim UI on the site is **not production-ready** yet; onchain `claim()` exists.
+
+If a user asks “does the router have claim?” → clarify: **fee collection yes** (keeper); **holder dividend claim no** (that’s Hub, post-enrollment).
 
 ### Router policy (immutable)
 
@@ -87,6 +116,16 @@ The **Pay Me Dividends keeper** (hourly worker) handles collection and meme→pa
 
 Deep link (existing token): `https://app.paymedividends.xyz/#test-lab?token=0x…`
 
+## If user asks about manual claim or SPY
+
+**Manual claim (not in sink):** Bankr/Doppler “claim fees” → wallet gets **DEVS + MSFT** raw. No conversion.
+
+**After sink:** Fees go to router; keeper converts DEVS → **MSFT** (paired asset), never SPY.
+
+**Holder claims:** `UniversalRewardsHub.claim()` on Hub — MSFT after enrollment + round. Not on router.
+
+Example reply: *“Right now your claims land as DEVS + MSFT in your wallet. After you join the sink, fees route to the router and DEVS auto-converts to MSFT for holders — not SPY. Router collects fees; holders claim MSFT from the Hub later.”*
+
 ## Platform constants (Robinhood mainnet)
 
 | Contract | Address |
@@ -111,6 +150,9 @@ Proxy (optional): `GET /v1/bankr/beneficiary-fees/:wallet` on Pay Me Dividends A
 - Store user Bankr API keys server-side for the launch wizard
 - Quote or execute swaps (keeper handles Doppler DEVS→MSFT conversion)
 - Route RWAs through SPY or mention 0x to users for fee conversion
+- Say manual Doppler claims auto-convert DEVS to SPY, MSFT, or anything else (wallet gets raw split until retarget)
+- Say “settlement” or “SPY” when the pool’s paired RWA is MSFT (or another stock)
+- Confuse beneficiary **fee claim to wallet** (#1) with holder **Hub.claim** (#3)
 
 ## Product rules
 
