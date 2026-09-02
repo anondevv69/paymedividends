@@ -106,6 +106,80 @@ MANIFEST_DIR=/data/manifests
 WORKER_POLL_INTERVAL_MS=3600000
 ```
 
+### Meme fee → paired RWA conversion
+
+In a `$DEVS` / `$MSFT` pool, fee collection splits cleanly:
+
+| Leg | Asset | Path |
+|---|---|---|
+| Quote/RWA fees | MSFT | Router → Hub deposit (direct, no swap) |
+| Meme fees | DEVS | Router → adapter → executor → MSFT → Hub deposit |
+
+Non-RWA meme fees must use `SwapToSettlement` policy with `MemeToSettlementAdapter`. The executor registers **one hop per meme**: meme → paired RWA (e.g. DEVS → MSFT). MSFT is never swapped to SPY — it is already an approved RWA.
+
+1. **Deploy** (`script/DeployMemeSettlement.s.sol` on chain 4663):
+
+```env
+UNIVERSAL_REWARDS_HUB=0x6844D0814E904722777A48Ae2CF7C4b8F78a19e5
+GOVERNANCE_SAFE=<safe>
+DEPLOYER_PRIVATE_KEY=<key>
+```
+
+2. **Register routes** on `RobinhoodMemeSwapExecutor` per meme token:
+
+```bash
+# discovers all pool-bound SwapToSettlement routers + enrollment queue rows
+MEME_SWAP_EXECUTOR=0xc28619a3e810b984B1d885E27858d405244971E1 \
+GOVERNANCE_SAFE=0x34A6cD0EE9704090AA0Aa3e2957a81Bb75029e84 \
+PROJECT_ROUTER_FACTORY=0x4AD615B99e2B6E8e2C322c657Ac8f81F1806A3a7 \
+MANIFEST_DIR=/data/manifests \
+npm run route-builder
+```
+
+Import `artifacts/route-builder/safe-batch.json` into the Governance Safe (Transaction Builder → Import). Sign once — one `registerMemeRouteSimple` tx per sink token. No manual swaps.
+
+3. **Keeper runtime quotes** (after routes are registered):
+
+Default provider is **Doppler pool quotes** (`SWAP_QUOTE_PROVIDER=auto` or `doppler`) — swaps DEVS → MSFT through the token's Doppler V4 pool via Robinhood's Universal Router. No 0x API key required.
+
+Optional 0x fallback (`SWAP_QUOTE_PROVIDER=auto` + `ZEROX_API_KEY`) or forced 0x (`SWAP_QUOTE_PROVIDER=0x`). Robinhood RWAs may require 0x opt-in.
+
+```env
+SWAP_QUOTE_PROVIDER=doppler
+MEME_SWAP_EXECUTOR=0xc87498E933d624e40E791322191ab03c7335057e
+KEEPER_PRIVATE_KEY=<keeper wallet>
+EXECUTION_MODE=keeper_live
+```
+
+Keeper flow per collection: `collect` → `setRuntimeSwap` (fresh Doppler or 0x quote) → `processMemeAsset`.
+
+**Note:** Universal Router swaps require Permit2. Redeploy `RobinhoodMemeSwapExecutor` after pulling the latest contract if your live executor predates Permit2 support.
+
+**Note:** the executor deployed before `registerMemeRouteSimple` / `setRuntimeSwap` must be redeployed. Re-run `DeployMemeSettlement.s.sol`, update `MEME_TO_PAIRED_ADAPTER` + `MEME_SWAP_EXECUTOR`, then run `npm run route-builder`.
+
+```env
+MEME_TO_PAIRED_ADAPTER=0x...   # preferred name
+MEME_SWAP_EXECUTOR=0x...
+```
+
+4. **Keeper** (dry-run first):
+
+```env
+EXECUTION_MODE=keeper_dry_run   # or keeper_live
+KEEPER_MIN_SETTLEMENT_OUT=1     # router requires non-zero minOut for swaps
+SWAP_QUOTE_PROVIDER=doppler     # auto | doppler | 0x
+SWAP_SLIPPAGE_BPS=100
+# Optional UK/residential proxy for Doppler RPC quotes (not required for 0x):
+# DOPPLER_HTTP_PROXY=host:3128:username:password
+# Multiple proxies (random per quote): comma-separated list
+KEEPER_PRIVATE_KEY=<key>        # required for keeper_live only
+ZEROX_API_KEY=<key>             # optional unless SWAP_QUOTE_PROVIDER=0x
+```
+
+The hourly worker calls `collectAndRouteBankrDopplerFees(minOut)` and `processMemeAsset(minOut)` on every factory router with `SwapToSettlement` policy. Approved RWA quote assets still deposit directly to the Hub.
+
+**Note:** Routers already created with `QuoteOnly` cannot change policy — create a new router and retarget Bankr fees.
+
 ### API enrollment queue
 
 ```env

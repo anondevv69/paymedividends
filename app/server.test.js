@@ -170,6 +170,27 @@ test("platform endpoint exposes live factory and hub fields", async (t) => {
   assert.equal(response.body.universalRewardsHub, hub);
   assert.equal(response.body.projectRouterFactory, factory);
   assert.equal(response.body.chainId, 4663);
+  assert.equal(response.body.memeAssetPolicy, "QuoteOnly");
+});
+
+test("platform endpoint exposes meme settlement adapter when configured", async (t) => {
+  const adapter = "0x1234567890123456789012345678901234567890";
+  const server = createServer({
+    env: {
+      EXECUTION_MODE: "disabled",
+      UNIVERSAL_REWARDS_HUB: "0x6844D0814E904722777A48Ae2CF7C4b8F78a19e5",
+      PROJECT_ROUTER_FACTORY: "0x4AD615B99e2B6E8e2C322c657Ac8f81F1806A3a7",
+      MEME_TO_SPY_ADAPTER: adapter,
+    },
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => server.close());
+
+  const response = await request(server, "/v1/platform");
+  assert.equal(response.status, 200);
+  assert.equal(response.body.memeToSettlementAdapter, adapter);
+  assert.equal(response.body.memeAssetPolicy, "SwapToSettlement");
 });
 
 test("public port falls back to the Railway-compatible port", () => {

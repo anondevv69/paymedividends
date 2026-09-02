@@ -202,8 +202,8 @@ contract ProjectRouter {
     }
 
     /// @notice Applies the fixed policy to a received Bankr meme-token fee balance.
-    /// @dev Swap-to-settlement is intentionally unavailable without a fixed, audited adapter. The adapter must
-    ///      independently enforce a route, deadline, TWAP/price impact, and a minimum-safe output policy.
+    /// @dev Meme fees swap into the pool's paired RWA (e.g. DEVS → MSFT) and deposit to the Hub.
+    ///      Tokenized stock / RWA fee legs are never swapped — they route directly via `_routeApprovedAsset`.
     function processMemeAsset(uint256 minimumSettlementOut)
         external
         whenPoolBound
@@ -241,21 +241,21 @@ contract ProjectRouter {
         }
         if (minimumSettlementOut == 0) revert UnsafeSettlement();
 
-        address settlement = IUniversalRewardsHub(hub).settlementAsset();
-        uint256 balanceBefore = IERC20(settlement).balanceOf(address(this));
+        address outputAsset = pairedAsset;
+        uint256 balanceBefore = IERC20(outputAsset).balanceOf(address(this));
         memeAsset.forceApprove(swapAdapter, amountIn);
         ISwapToSettlementAdapter(swapAdapter)
-            .swapToSettlement(memeAsset, settlement, amountIn, minimumSettlementOut, address(this));
+            .swapToSettlement(memeAsset, outputAsset, amountIn, minimumSettlementOut, address(this));
         memeAsset.forceApprove(swapAdapter, 0);
 
-        uint256 balanceAfter = IERC20(settlement).balanceOf(address(this));
+        uint256 balanceAfter = IERC20(outputAsset).balanceOf(address(this));
         if (balanceAfter < balanceBefore) revert UnsafeSettlement();
         settlementAmountOut = balanceAfter - balanceBefore;
         if (settlementAmountOut < minimumSettlementOut) revert UnsafeSettlement();
 
-        settlement.forceApprove(hub, settlementAmountOut);
-        hubNetAmount = IUniversalRewardsHub(hub).deposit(settlement, settlementAmountOut);
-        settlement.forceApprove(hub, 0);
+        outputAsset.forceApprove(hub, settlementAmountOut);
+        hubNetAmount = IUniversalRewardsHub(hub).deposit(outputAsset, settlementAmountOut);
+        outputAsset.forceApprove(hub, 0);
 
         emit MemeAssetConvertedToSettlement(memeAsset, amountIn, settlementAmountOut, hubNetAmount);
     }

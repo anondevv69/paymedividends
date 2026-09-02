@@ -109,9 +109,9 @@ The local v2 suite verifies the core economic boundaries before an audited deplo
 - claim deadlines cannot exceed the 90-day maximum window;
 - newly scheduled communities cannot activate during their seven-day admission delay;
 - the Router uses Bankr's published `getShares` and `collectFees` interface;
-- approved RWA assets route directly to their own Hub bucket;
-- a fixed swap adapter can convert a meme fee balance into the Hub settlement asset (SPY in the
-  intended mainnet configuration).
+- approved RWA / tokenized-stock fee legs route directly to their own Hub bucket (never swapped);
+- a fixed swap adapter can convert a meme fee balance into the pool's paired RWA (e.g. DEVS → MSFT).
+  Tokenized stocks are never converted to SPY.
 
 Create a Robinhood Safe before deploying. A single 1-of-1 Safe is accepted for v1; stronger
 multi-sig remains recommended for production TVL:

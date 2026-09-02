@@ -10,10 +10,15 @@
   "scripts": {
     "start": "node app/server.js",
     "start:worker": "node app/worker.js",
+    "start:keeper": "node app/keeper.js",
+    "route-builder": "node app/route-builder.js",
     "test:app": "node --test app/**/*.test.js",
     "test": "npm run test:app && forge test"
   },
   "dependencies": {
-    "ethereum-cryptography": "^3.2.0"
+    "@whetstone-research/doppler-sdk": "^1.0.39",
+    "ethereum-cryptography": "^3.2.0",
+    "undici": "^8.10.1",
+    "viem": "^2.56.2"
   }
 }

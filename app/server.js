@@ -342,6 +342,9 @@ export function createServer({
         rpcUrl: config.robinhoodRpcUrl,
         projectRouterFactory: factory,
         universalRewardsHub: hub,
+        memeToSettlementAdapter: config.memeToSettlementAdapter,
+        memeSwapExecutor: config.memeSwapExecutor,
+        memeAssetPolicy: config.memeToSettlementAdapter ? "SwapToSettlement" : "QuoteOnly",
         storage: {
           databaseConfigured: config.databaseConfigured,
           queueConfigured: config.queueConfigured,

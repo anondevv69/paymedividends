@@ -1,0 +1,136 @@
+{
+  "version": "1.0",
+  "chainId": "4663",
+  "createdAt": 1788310911673,
+  "meta": {
+    "name": "Register sink meme routes",
+    "description": "Approves Hub prerequisites, then registers meme → paired RWA routes on RobinhoodMemeSwapExecutor.",
+    "txBuilderVersion": "1.16.5"
+  },
+  "transactions": [
+    {
+      "to": "0x6844D0814E904722777A48Ae2CF7C4b8F78a19e5",
+      "value": "0",
+      "data": "0x6e49c8b2000000000000000000000000e93237c50d904957cf27e7b1133b510c669c2e740000000000000000000000000000000000000000000000000000000000000001",
+      "contractMethod": {
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "asset",
+            "type": "address"
+          },
+          {
+            "internalType": "bool",
+            "name": "approved",
+            "type": "bool"
+          }
+        ],
+        "name": "setApprovedAsset",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "asset": "0xe93237c50d904957cf27e7b1133b510c669c2e74",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0x6844D0814E904722777A48Ae2CF7C4b8F78a19e5",
+      "value": "0",
+      "data": "0x57ceaca80000000000000000000000004e3468951d49f2eea976ed0d6e75ffcb44a9a5440000000000000000000000000000000000000000000000000000000000000001",
+      "contractMethod": {
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "feeManager",
+            "type": "address"
+          },
+          {
+            "internalType": "bool",
+            "name": "approved",
+            "type": "bool"
+          }
+        ],
+        "name": "setApprovedFeeManager",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "feeManager": "0x4e3468951D49f2EEa976eD0D6e75fFCb44a9a544",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0x6844D0814E904722777A48Ae2CF7C4b8F78a19e5",
+      "value": "0",
+      "data": "0xac3321540000000000000000000000004e3468951d49f2eea976ed0d6e75ffcb44a9a544130caf8b43343e182a79a4046932bd5623a87e9309e7c53e2d1efb4ec6b8e2a000000000000000000000000080db362eab104ec378e19d0a3dcd5e84bafd4ba3000000000000000000000000e93237c50d904957cf27e7b1133b510c669c2e740000000000000000000000000000000000000000000000000000000000000001",
+      "contractMethod": {
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "feeManager",
+            "type": "address"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "poolId",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "address",
+            "name": "communityToken",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "pairedAsset",
+            "type": "address"
+          },
+          {
+            "internalType": "bool",
+            "name": "approved",
+            "type": "bool"
+          }
+        ],
+        "name": "setApprovedPoolBinding",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "feeManager": "0x4e3468951D49f2EEa976eD0D6e75fFCb44a9a544",
+        "poolId": "0x130caf8b43343e182a79a4046932bd5623a87e9309e7c53e2d1efb4ec6b8e2a0",
+        "communityToken": "0x80db362eab104ec378e19d0a3dcd5e84bafd4ba3",
+        "pairedAsset": "0xe93237c50d904957cf27e7b1133b510c669c2e74",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0xc87498E933d624e40E791322191ab03c7335057e",
+      "value": "0",
+      "data": "0x114c55b600000000000000000000000080db362eab104ec378e19d0a3dcd5e84bafd4ba3000000000000000000000000e93237c50d904957cf27e7b1133b510c669c2e740000000000000000000000000000000000000000000000000000000000000001",
+      "contractMethod": {
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "meme",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "pairedAsset",
+            "type": "address"
+          },
+          {
+            "internalType": "bool",
+            "name": "active",
+            "type": "bool"
+          }
+        ],
+        "name": "registerMemeRouteSimple",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "meme": "0x80db362eab104ec378e19d0a3dcd5e84bafd4ba3",
+        "pairedAsset": "0xe93237c50d904957cf27e7b1133b510c669c2e74",
+        "active": "true"
+      }
+    }
+  ]
+}
