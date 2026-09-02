@@ -1,6 +1,7 @@
 import { pathToFileURL } from "node:url";
 import { platformConfig } from "./config.js";
 import { createCheckpointStore, snapshotWithCheckpoint } from "./checkpoint-store.js";
+import { runKeeperTick } from "./keeper.js";
 import { buildCommunitySnapshot } from "./manifest.js";
 import { snapshotBalancesAtBlock } from "./snapshot.js";
 import { createManifestStore } from "./storage.js";
@@ -35,17 +36,22 @@ export async function runWorkerTick({
     hub: config.universalRewardsHub,
     memberTokenCount: memberTokens.length,
     cadence: "hourly",
-    feeCollection: "skipped_until_execution_enabled",
+    feeCollection: config.executionMode === "disabled"
+      ? "skipped_until_execution_enabled"
+      : config.executionMode,
     roundPublication: "idle",
     at: new Date(now).toISOString(),
   };
 
-  if (config.executionMode !== "disabled") {
+  if (config.executionMode === "keeper_dry_run" || config.executionMode === "keeper_live") {
+    status.keeper = await runKeeperTick({ config, logger, fetchImpl, now });
+  } else if (config.executionMode !== "disabled") {
     throw new Error("execution_mode_unsafe");
   }
 
-  status.message =
-    "Hourly worker is in dry-run mode. Holder snapshots run on-demand at round time — no persistent transfer history.";
+  status.message = config.executionMode === "disabled"
+    ? "Hourly worker is in dry-run mode. Holder snapshots run on-demand at round time — no persistent transfer history."
+    : "Hourly worker ran the meme-fee keeper before snapshot work.";
 
   if (memberTokens.length > 0 && snapshotBlock != null && allocationPerCommunity != null) {
     const published = [];
@@ -103,6 +109,21 @@ export function getWorkerDeps() {
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const port = Number.parseInt(process.env.PORT ?? "", 10);
+  if (Number.isInteger(port) && port > 0) {
+    const { createServer } = await import("node:http");
+    createServer((_request, response) => {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({
+        ok: true,
+        service: "paymedividends-worker",
+        executionMode: config.executionMode,
+      }));
+    }).listen(port, () => {
+      console.log(JSON.stringify({ service: "paymedividends-worker", health: `listening:${port}` }));
+    });
+  }
+
   await runWorkerTick();
   setInterval(() => {
     runWorkerTick().catch((error) => {

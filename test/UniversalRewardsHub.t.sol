@@ -4,6 +4,8 @@ pragma solidity 0.8.26;
 import {IDopplerFeeManager} from "../src/interfaces/IDopplerFeeManager.sol";
 import {IERC20} from "../src/interfaces/IERC20.sol";
 import {ISwapToSettlementAdapter} from "../src/interfaces/ISwapToSettlementAdapter.sol";
+import {MemeToSettlementAdapter} from "../src/MemeToSettlementAdapter.sol";
+import {TestMemeSwapExecutor} from "../src/TestMemeSwapExecutor.sol";
 import {ProjectRouter} from "../src/ProjectRouter.sol";
 import {ProjectRouterFactory} from "../src/ProjectRouterFactory.sol";
 import {UniversalRewardsHub} from "../src/UniversalRewardsHub.sol";
@@ -561,6 +563,41 @@ contract UniversalRewardsHubTest is TestV2 {
         (uint256 settlementOut, uint256 hubNetAmount) = swapRouter.processMemeAsset(99e18);
         assertEq(settlementOut, 100e18);
         assertEq(hubNetAmount, 95e18);
+    }
+
+    function test_meme_to_settlement_adapter_rejects_rwa_input() public {
+        MemeToSettlementAdapter memeAdapter = new MemeToSettlementAdapter(address(hub), address(0xBEEF));
+        vm.prank(address(routerA));
+        vm.expectRevert(MemeToSettlementAdapter.RwaUseDirectDeposit.selector);
+        memeAdapter.swapToSettlement(address(spy), address(spy), 1e18, 1, address(routerA));
+    }
+
+    function test_router_converts_meme_through_meme_to_settlement_adapter() public {
+        TestMemeSwapExecutor executor = new TestMemeSwapExecutor();
+        MemeToSettlementAdapter memeAdapter = new MemeToSettlementAdapter(address(hub), address(executor));
+        MockTokenV2 memeC = new MockTokenV2("MEMED");
+        MockDopplerFeeManagerV2 feeManagerC = new MockDopplerFeeManagerV2(spy, memeC);
+        bytes32 poolC = keccak256("pool-d");
+        vm.prank(GOVERNANCE);
+        hub.setApprovedFeeManager(address(feeManagerC), true);
+        vm.prank(GOVERNANCE);
+        hub.setApprovedPoolBinding(address(feeManagerC), poolC, address(memeC), address(spy), true);
+        vm.prank(projectA);
+        ProjectRouter swapRouter = ProjectRouter(
+            factory.createPrelaunchRouter(
+                address(hub), ProjectRouter.MemeAssetPolicy.SwapToSettlement, address(0), address(memeAdapter)
+            )
+        );
+        feeManagerC.setShares(poolC, address(swapRouter), 1e18);
+        vm.prank(projectA);
+        swapRouter.bindBankrDopplerLaunch(address(memeC), address(memeC), address(spy), address(feeManagerC), poolC);
+
+        memeC.mint(address(swapRouter), 100e18);
+        spy.mint(address(executor), 100e18);
+        (uint256 settlementOut, uint256 hubNetAmount) = swapRouter.processMemeAsset(99e18);
+        assertEq(settlementOut, 100e18);
+        assertEq(hubNetAmount, 95e18);
+        assertEq(spy.balanceOf(OPS), 5e18);
     }
 
     function _depositSpy(uint256 amount) private {

@@ -13,6 +13,16 @@ export function encodeUint256(value) {
   return BigInt(value).toString(16).padStart(64, "0");
 }
 
+export function encodeBool(value) {
+  return value ? "1".padStart(64, "0") : "0".padStart(64, "0");
+}
+
+export function encodeBytes32(value) {
+  const hex = String(value ?? "").replace(/^0x/, "").toLowerCase();
+  if (hex.length !== 64) throw new Error(`invalid_bytes32:${value}`);
+  return hex;
+}
+
 export function encodeCall(selector, encodedArgs = "") {
   const sig = selector.replace(/^0x/, "").toLowerCase();
   return `0x${sig}${encodedArgs.replace(/^0x/, "")}`;

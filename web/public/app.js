@@ -84,6 +84,19 @@ function displayPath() {
     : "Existing token → fee sink";
 }
 
+function requireRouterPlatformConfig() {
+  if (!state.platform.factory || !state.platform.hub) {
+    output.textContent = "Factory/Hub addresses are not configured on the API yet.";
+    return false;
+  }
+    if (!state.platform.memeToSettlementAdapter) {
+    output.textContent =
+      "Meme-to-paired-RWA adapter is not configured on the API yet. Routers are created with SwapToSettlement policy.";
+    return false;
+  }
+  return true;
+}
+
 function tokenAddressForFlow() {
   if (state.programType === "existingBankr") return value("existing-token-address");
   return state.lastLaunch?.tokenAddress ?? value("existing-token-address");
@@ -93,8 +106,10 @@ function pad32(hex) {
   return hex.replace(/^0x/, "").toLowerCase().padStart(64, "0");
 }
 
-function encodeCreateRouterCalldata(hub) {
-  return `0xe1ad62bd${pad32(hub)}${pad32("0")}${pad32("0")}${pad32("0")}`;
+const MEME_POLICY_SWAP_TO_SETTLEMENT = 3;
+
+function encodeCreateRouterCalldata(hub, swapAdapter) {
+  return `0xe1ad62bd${pad32(hub)}${pad32(String(MEME_POLICY_SWAP_TO_SETTLEMENT))}${pad32("0")}${pad32(swapAdapter)}`;
 }
 
 function encodeGetSharesCalldata(poolId, beneficiary) {
@@ -399,7 +414,10 @@ async function createRouterOnchain(account) {
   setWizardStep("router", "Creating router");
   output.textContent = "Confirm the create-router transaction in your wallet…";
 
-  const data = encodeCreateRouterCalldata(state.platform.hub);
+  if (!state.platform.memeToSettlementAdapter) {
+    throw new Error("Meme-to-paired-RWA adapter is not configured on the platform API yet.");
+  }
+  const data = encodeCreateRouterCalldata(state.platform.hub, state.platform.memeToSettlementAdapter);
   const txHash = await window.ethereum.request({
     method: "eth_sendTransaction",
     params: [{ from: account, to: state.platform.factory, data }],
@@ -555,10 +573,7 @@ async function verifyFeeRecipient({ poolId, router, feeRecipientAddress, simulat
 async function runNewLaunchFlow(event) {
   event.preventDefault();
   if (state.busy) return;
-  if (!state.platform.factory || !state.platform.hub) {
-    output.textContent = "Factory/Hub addresses are not configured on the API yet.";
-    return;
-  }
+  if (!requireRouterPlatformConfig()) return;
 
   await runIntegratedBankrLaunch();
 }
@@ -760,10 +775,7 @@ async function runIntegratedBankrLaunch() {
 async function runExistingFlow(event) {
   event.preventDefault();
   if (state.busy) return;
-  if (!state.platform.factory || !state.platform.hub) {
-    output.textContent = "Factory/Hub addresses are not configured on the API yet.";
-    return;
-  }
+  if (!requireRouterPlatformConfig()) return;
 
   const tokenAddress = value("existing-token-address");
   if (!isAddress(tokenAddress)) {
@@ -892,6 +904,7 @@ async function loadPlatform() {
       explorer: DEFAULTS.explorer,
       factory: data.projectRouterFactory || DEFAULTS.factory,
       hub: data.universalRewardsHub || DEFAULTS.hub,
+      memeToSettlementAdapter: data.memeToSettlementAdapter ?? null,
     };
     factoryEl.textContent = shortAddress(state.platform.factory);
     hubEl.textContent = shortAddress(state.platform.hub);
