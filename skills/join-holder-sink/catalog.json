@@ -7,11 +7,12 @@
   "demo": {
     "title": "join-sink.sh",
     "language": "bash",
-    "code": "# List Robinhood tokens where this wallet is fee beneficiary\ncurl \"https://api.bankr.bot/public/doppler/beneficiary-fees/0xYourWallet\"\n\n# Or use Pay Me Dividends filtered proxy\ncurl \"https://paymedividends-production.up.railway.app/v1/bankr/beneficiary-fees/0xYourWallet\"\n\n# Deep link to site wizard (existing token)\nopen \"https://app.paymedividends.xyz/#test-lab?token=0x80db362eab104ec378e19d0a3dcd5e84bafd4ba3\""
+    "code": "# List Robinhood tokens where this wallet is fee beneficiary\ncurl \"https://api.bankr.bot/public/doppler/beneficiary-fees/0xYourWallet\"\n\n# Pay Me Dividends filtered proxy (use Railway URL if custom domain TLS pending)\ncurl \"https://paymedividends-production.up.railway.app/v1/bankr/beneficiary-fees/0xYourWallet\"\n\n# Deep link — existing token, stock-paired pool only\open \"https://app.paymedividends.xyz/#test-lab?token=0x80db362eab104ec378e19d0a3dcd5e84bafd4ba3\""
   },
   "setup": [
     "User must be the current Bankr fee beneficiary on a Robinhood Chain stock-paired token (≥95% share).",
     "Connect wallet on Robinhood Chain (4663) or use Bankr wallet with Robinhood support.",
+    "Router must use SwapToSettlement policy so meme fees convert to paired RWA (keeper handles swaps — not the bot).",
     "For new tokens, use app.paymedividends.xyz instead — this skill is for existing tokens only."
   ],
   "install": {
